@@ -3,15 +3,20 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 import json
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 
 from app.models.projects import (
+    CanonFactRecord,
     ChapterAiRequest,
     ChapterEditorRecord,
     ChapterEditorRecordSet,
     ChapterEditorUpdate,
+    ContinuityCheckRecord,
+    ContinuityCheckRequest,
+    ContinuityIssueRecord,
     ProjectCreate,
     ProjectRecord,
     ProjectSetupAnalysis,
@@ -138,6 +143,72 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
     return Response(content=text, media_type="text/plain; charset=utf-8")
 
 
+@router.post("/{project_id}/canon/check", response_model=ContinuityCheckRecord)
+async def check_project_continuity(
+    project_id: str,
+    payload: ContinuityCheckRequest,
+) -> ContinuityCheckRecord:
+    workspace = project_store.get_project_workspace(project_id)
+    if workspace is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    provider_id = payload.provider_id or workspace.project.provider_id
+    model_id = payload.model_id or workspace.project.model_id
+    issues: list[ContinuityIssueRecord]
+
+    if provider_id and model_id:
+        stored = provider_store.get_provider(provider_id)
+        if stored is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+        if not stored.provider.is_enabled:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
+        adapter = create_adapter(stored.provider, stored.api_key)
+        try:
+            raw = await adapter.complete_chat(
+                model_id=model_id,
+                temperature=0.2,
+                messages=[
+                    ChatMessage(
+                        role="system",
+                        content=(
+                            "You check fiction continuity against project canon. Return compact JSON "
+                            "with an issues array. Each issue may include severity info, warning, or "
+                            "conflict; summary; detail; related_fact_ids; and suggested_fact with "
+                            "title, fact, category, status, notes."
+                        ),
+                    ),
+                    ChatMessage(
+                        role="user",
+                        content=_continuity_prompt(workspace, payload.text),
+                    ),
+                ],
+            )
+            issues = _continuity_issues_from_ai_text(raw)
+        except Exception as exc:
+            issues = _fallback_continuity_issues(workspace, payload.text)
+            issues.append(
+                ContinuityIssueRecord(
+                    id=str(uuid4()),
+                    severity="warning",
+                    summary="AI continuity check could not run.",
+                    detail=f"{exc.__class__.__name__}: fallback heuristics were used.",
+                )
+            )
+    else:
+        issues = _fallback_continuity_issues(workspace, payload.text)
+
+    check = project_store.store_continuity_check(
+        project_id,
+        payload.text,
+        issues,
+        provider_id=provider_id,
+        model_id=model_id,
+    )
+    if check is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return check
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_project(project_id: str) -> Response:
     if not project_store.archive_project(project_id):
@@ -250,6 +321,159 @@ def _fallback_chapter_assist(
         "Keep the point of view close, make the next choice visible, and let the chapter "
         "end with a changed problem."
     )
+
+
+def _continuity_prompt(workspace: ProjectWorkspaceRecord, text: str) -> str:
+    return "\n\n".join(
+        [
+            _workspace_context(workspace),
+            _canon_context(workspace),
+            (
+                "Draft to check:\n"
+                f"{text}\n\n"
+                "Return JSON only, for example: "
+                '{"issues":[{"severity":"warning","summary":"...","detail":"...",'
+                '"related_fact_ids":["..."],"suggested_fact":{"title":"...",'
+                '"fact":"...","category":"continuity","status":"suggested"}}]}'
+            ),
+        ]
+    )
+
+
+def _workspace_context(workspace: ProjectWorkspaceRecord) -> str:
+    settings = workspace.settings
+    chapters = "; ".join(
+        f"{chapter.id or chapter.position}:{chapter.title} - {chapter.summary or ''}"
+        for chapter in workspace.plot_board.chapters[:12]
+    )
+    characters = "; ".join(
+        f"{character.id or character.name}:{character.name} ({character.role or 'role open'})"
+        for character in workspace.characters[:12]
+    )
+    timeline = "; ".join(
+        f"{event.id or event.position}:{event.event_time or event.position} - {event.title}"
+        for event in workspace.canon.timeline[:16]
+    )
+    return "\n".join(
+        part
+        for part in [
+            f"Project: {workspace.project.name}",
+            f"Synopsis: {workspace.project.synopsis}" if workspace.project.synopsis else "",
+            f"Genre: {settings.genre}" if settings.genre else "",
+            f"Tone: {settings.tone}" if settings.tone else "",
+            f"Setting: {settings.setting}" if settings.setting else "",
+            f"Characters: {characters}" if characters else "",
+            f"Chapters: {chapters}" if chapters else "",
+            f"Timeline: {timeline}" if timeline else "",
+        ]
+        if part
+    )
+
+
+def _canon_context(workspace: ProjectWorkspaceRecord) -> str:
+    facts = "\n".join(
+        f"- {fact.id}: [{fact.status}/{fact.category}] {fact.title}: {fact.fact}"
+        for fact in workspace.canon.facts[:40]
+    )
+    return f"Canon facts:\n{facts}" if facts else "Canon facts: none recorded yet."
+
+
+def _continuity_issues_from_ai_text(raw_text: str) -> list[ContinuityIssueRecord]:
+    parsed = _parse_json_object(raw_text)
+    raw_issues = parsed.get("issues") if parsed else None
+    if not isinstance(raw_issues, list):
+        return [
+            ContinuityIssueRecord(
+                id=str(uuid4()),
+                severity="info",
+                summary="AI continuity notes",
+                detail=raw_text.strip() or "No issues returned.",
+            )
+        ]
+    issues = [_continuity_issue_from_object(item) for item in raw_issues if isinstance(item, dict)]
+    return issues or [
+        ContinuityIssueRecord(
+            id=str(uuid4()),
+            severity="info",
+            summary="No continuity issues found.",
+            detail="The check did not identify contradictions against current canon.",
+        )
+    ]
+
+
+def _continuity_issue_from_object(item: dict[str, Any]) -> ContinuityIssueRecord:
+    severity = _string(item.get("severity")) or "info"
+    if severity not in {"info", "warning", "conflict"}:
+        severity = "info"
+    suggested = item.get("suggested_fact")
+    suggested_fact = None
+    if isinstance(suggested, dict):
+        fact = _string(suggested.get("fact"))
+        title = _string(suggested.get("title")) or (fact[:80] if fact else None)
+        if fact and title:
+            suggested_fact = CanonFactRecord(
+                title=title,
+                fact=fact,
+                category=_string(suggested.get("category")) or "continuity",
+                status=_string(suggested.get("status")) or "suggested",
+                notes=_string(suggested.get("notes")),
+            )
+    return ContinuityIssueRecord(
+        id=_string(item.get("id")) or str(uuid4()),
+        severity=severity,
+        summary=_string(item.get("summary")) or "Continuity note",
+        detail=_string(item.get("detail")),
+        related_fact_ids=_string_list(item.get("related_fact_ids")),
+        suggested_fact=suggested_fact,
+    )
+
+
+def _fallback_continuity_issues(
+    workspace: ProjectWorkspaceRecord,
+    text: str,
+) -> list[ContinuityIssueRecord]:
+    lower_text = text.lower()
+    matched = [
+        fact
+        for fact in workspace.canon.facts
+        if any(word in lower_text for word in fact.fact.lower().split() if len(word) > 4)
+    ][:5]
+    issues: list[ContinuityIssueRecord] = []
+    if matched:
+        issues.append(
+            ContinuityIssueRecord(
+                id=str(uuid4()),
+                severity="info",
+                summary="Draft overlaps current canon.",
+                detail="Review the linked facts before accepting new continuity details.",
+                related_fact_ids=[fact.id for fact in matched if fact.id],
+            )
+        )
+    if text.strip():
+        preview = " ".join(text.split())[:140]
+        issues.append(
+            ContinuityIssueRecord(
+                id=str(uuid4()),
+                severity="info",
+                summary="Possible canon fact to confirm.",
+                detail="Fallback mode cannot prove contradictions, but this detail can be reviewed.",
+                suggested_fact=CanonFactRecord(
+                    title="Draft continuity note",
+                    fact=preview,
+                    category="draft",
+                    status="suggested",
+                    notes="Generated by fallback continuity check.",
+                ),
+            )
+        )
+    return issues or [
+        ContinuityIssueRecord(
+            id=str(uuid4()),
+            severity="info",
+            summary="No draft text to check.",
+            detail="Add a passage before running a continuity review.",
+        )
+    ]
 
 
 def _editor_context(editor: ChapterEditorRecordSet) -> str:

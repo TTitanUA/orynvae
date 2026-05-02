@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { projectStatusLabel } from "./projects";
+import { continuitySeverityLabel, projectStatusLabel } from "./projects";
 import type { Project } from "../types/projects";
 
 function project(overrides: Partial<Project>): Project {
@@ -30,3 +30,10 @@ describe("projectStatusLabel", () => {
   });
 });
 
+describe("continuitySeverityLabel", () => {
+  it("labels review severities", () => {
+    expect(continuitySeverityLabel("conflict")).toBe("Conflict");
+    expect(continuitySeverityLabel("warning")).toBe("Warning");
+    expect(continuitySeverityLabel("info")).toBe("Info");
+  });
+});

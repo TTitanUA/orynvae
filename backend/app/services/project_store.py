@@ -6,10 +6,15 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.projects import (
+    CanonFactLinkRecord,
+    CanonFactRecord,
+    CanonWorkspaceRecord,
     ChapterEditorRecord,
     ChapterEditorRecordSet,
     ChapterEditorUpdate,
     ChapterPlanRecord,
+    ContinuityCheckRecord,
+    ContinuityIssueRecord,
     CharacterWorkspaceRecord,
     IdeaLabRecord,
     PlotArcWorkspaceRecord,
@@ -21,6 +26,7 @@ from app.models.projects import (
     ProjectUpdate,
     ProjectWorkspaceRecord,
     ProjectWorkspaceUpdate,
+    TimelineEventRecord,
     WorkspaceSettings,
     WorldBibleRecord,
     WorldEntryRecord,
@@ -124,6 +130,7 @@ def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord | None:
             world_bible=_get_world_bible(connection, project_id),
             characters=_get_characters(connection, project_id),
             plot_board=_get_plot_board(connection, project_id),
+            canon=_get_canon_workspace(connection, project_id),
         )
 
 
@@ -330,9 +337,47 @@ def update_project_workspace(
         _replace_world_bible(connection, project_id, payload.world_bible)
         _replace_characters(connection, project_id, payload.characters)
         _replace_plot_board(connection, project_id, payload.plot_board)
+        _replace_canon_workspace(connection, project_id, payload.canon)
         connection.commit()
 
     return get_project_workspace(project_id)
+
+
+def store_continuity_check(
+    project_id: str,
+    source_text: str,
+    issues: list[ContinuityIssueRecord],
+    *,
+    provider_id: str | None = None,
+    model_id: str | None = None,
+) -> ContinuityCheckRecord | None:
+    if get_project(project_id) is None:
+        return None
+
+    check_id = str(uuid4())
+    result_json = json.dumps([issue.model_dump(mode="json") for issue in issues], ensure_ascii=False)
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO continuity_checks (
+              id, project_id, source_text, result_json, provider_id, model_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (check_id, project_id, source_text, result_json, provider_id, model_id),
+        )
+        connection.commit()
+        row = connection.execute(
+            "SELECT created_at FROM continuity_checks WHERE id = ?",
+            (check_id,),
+        ).fetchone()
+
+    return ContinuityCheckRecord(
+        id=check_id,
+        project_id=project_id,
+        issues=issues,
+        created_at=row["created_at"] if row else "",
+    )
 
 
 def archive_project(project_id: str) -> bool:
@@ -535,6 +580,80 @@ def _get_plot_board(connection: sqlite3.Connection, project_id: str) -> PlotBoar
                 position=row["position"],
             )
             for row in chapter_rows
+        ],
+    )
+
+
+def _get_canon_workspace(
+    connection: sqlite3.Connection,
+    project_id: str,
+) -> CanonWorkspaceRecord:
+    fact_rows = connection.execute(
+        """
+        SELECT id, title, fact, category, status, source_type, source_id, notes, created_at, updated_at
+        FROM canon_facts
+        WHERE project_id = ?
+        ORDER BY updated_at DESC, created_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    link_rows = connection.execute(
+        """
+        SELECT id, fact_id, target_type, target_id, label
+        FROM canon_fact_links
+        WHERE project_id = ?
+        ORDER BY created_at ASC
+        """,
+        (project_id,),
+    ).fetchall()
+    links_by_fact: dict[str, list[CanonFactLinkRecord]] = {}
+    for row in link_rows:
+        links_by_fact.setdefault(row["fact_id"], []).append(
+            CanonFactLinkRecord(
+                id=row["id"],
+                target_type=row["target_type"],
+                target_id=row["target_id"],
+                label=row["label"],
+            )
+        )
+    event_rows = connection.execute(
+        """
+        SELECT id, title, summary, event_time, source_chapter_id, position, created_at, updated_at
+        FROM timeline_events
+        WHERE project_id = ?
+        ORDER BY position ASC, updated_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return CanonWorkspaceRecord(
+        facts=[
+            CanonFactRecord(
+                id=row["id"],
+                title=row["title"] or _preview(row["fact"]),
+                fact=row["fact"],
+                category=row["category"],
+                status=row["status"],
+                source_type=row["source_type"],
+                source_id=row["source_id"],
+                notes=row["notes"],
+                links=links_by_fact.get(row["id"], []),
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in fact_rows
+        ],
+        timeline=[
+            TimelineEventRecord(
+                id=row["id"],
+                title=row["title"],
+                summary=row["summary"],
+                event_time=row["event_time"],
+                source_chapter_id=row["source_chapter_id"],
+                position=row["position"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in event_rows
         ],
     )
 
@@ -899,6 +1018,72 @@ def _replace_plot_board(
                     scene["position"],
                 ),
             )
+
+
+def _replace_canon_workspace(
+    connection: sqlite3.Connection,
+    project_id: str,
+    canon: CanonWorkspaceRecord,
+) -> None:
+    connection.execute("DELETE FROM canon_facts WHERE project_id = ?", (project_id,))
+    for fact in canon.facts:
+        fact_id = fact.id or str(uuid4())
+        connection.execute(
+            """
+            INSERT INTO canon_facts (
+              id, project_id, title, fact, category, status, source_type, source_id, notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                fact_id,
+                project_id,
+                fact.title.strip(),
+                fact.fact.strip(),
+                _clean(fact.category) or "general",
+                _clean(fact.status) or "confirmed",
+                _clean(fact.source_type),
+                _clean(fact.source_id),
+                _clean(fact.notes),
+            ),
+        )
+        for link in fact.links:
+            connection.execute(
+                """
+                INSERT INTO canon_fact_links (
+                  id, project_id, fact_id, target_type, target_id, label
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    link.id or str(uuid4()),
+                    project_id,
+                    fact_id,
+                    link.target_type,
+                    link.target_id.strip(),
+                    _clean(link.label),
+                ),
+            )
+
+    connection.execute("DELETE FROM timeline_events WHERE project_id = ?", (project_id,))
+    for index, event in enumerate(canon.timeline):
+        connection.execute(
+            """
+            INSERT INTO timeline_events (
+              id, project_id, title, summary, event_time, source_chapter_id, position
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.id or str(uuid4()),
+                project_id,
+                event.title.strip(),
+                _clean(event.summary),
+                _clean(event.event_time),
+                event.source_chapter_id,
+                event.position if event.position >= 0 else index,
+            ),
+        )
 
 
 def _string_setting(settings: dict[str, Any], key: str) -> str | None:

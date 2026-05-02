@@ -171,6 +171,43 @@ class PlotBoardRecord(BaseModel):
     chapters: list[ChapterPlanRecord] = Field(default_factory=list)
 
 
+class CanonFactLinkRecord(BaseModel):
+    id: str | None = None
+    target_type: Literal["character", "chapter", "scene", "event", "world"]
+    target_id: str = Field(min_length=1, max_length=160)
+    label: str | None = Field(default=None, max_length=160)
+
+
+class CanonFactRecord(BaseModel):
+    id: str | None = None
+    title: str = Field(min_length=1, max_length=160)
+    fact: str = Field(min_length=1, max_length=5000)
+    category: str = Field(default="general", max_length=80)
+    status: str = Field(default="confirmed", max_length=40)
+    source_type: str | None = Field(default=None, max_length=80)
+    source_id: str | None = Field(default=None, max_length=160)
+    notes: str | None = Field(default=None, max_length=2000)
+    links: list[CanonFactLinkRecord] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class TimelineEventRecord(BaseModel):
+    id: str | None = None
+    title: str = Field(min_length=1, max_length=160)
+    summary: str | None = Field(default=None, max_length=5000)
+    event_time: str | None = Field(default=None, max_length=120)
+    source_chapter_id: str | None = None
+    position: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class CanonWorkspaceRecord(BaseModel):
+    facts: list[CanonFactRecord] = Field(default_factory=list)
+    timeline: list[TimelineEventRecord] = Field(default_factory=list)
+
+
 class ProjectWorkspaceRecord(BaseModel):
     project: ProjectRecord
     settings: WorkspaceSettings
@@ -178,6 +215,7 @@ class ProjectWorkspaceRecord(BaseModel):
     world_bible: WorldBibleRecord
     characters: list[CharacterWorkspaceRecord] = Field(default_factory=list)
     plot_board: PlotBoardRecord
+    canon: CanonWorkspaceRecord = Field(default_factory=CanonWorkspaceRecord)
 
 
 class ProjectWorkspaceUpdate(BaseModel):
@@ -191,6 +229,7 @@ class ProjectWorkspaceUpdate(BaseModel):
     world_bible: WorldBibleRecord = Field(default_factory=WorldBibleRecord)
     characters: list[CharacterWorkspaceRecord] = Field(default_factory=list)
     plot_board: PlotBoardRecord = Field(default_factory=PlotBoardRecord)
+    canon: CanonWorkspaceRecord = Field(default_factory=CanonWorkspaceRecord)
 
 
 class ChapterEditorRecordSet(BaseModel):
@@ -220,3 +259,26 @@ class ChapterAiRequest(BaseModel):
     model_id: str | None = None
     persona: str | None = Field(default=None, max_length=1200)
     stream: bool = True
+
+
+class ContinuityCheckRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=60000)
+    chapter_id: str | None = None
+    provider_id: str | None = None
+    model_id: str | None = None
+
+
+class ContinuityIssueRecord(BaseModel):
+    id: str
+    severity: Literal["info", "warning", "conflict"] = "info"
+    summary: str
+    detail: str | None = None
+    related_fact_ids: list[str] = Field(default_factory=list)
+    suggested_fact: CanonFactRecord | None = None
+
+
+class ContinuityCheckRecord(BaseModel):
+    id: str
+    project_id: str
+    issues: list[ContinuityIssueRecord] = Field(default_factory=list)
+    created_at: str
