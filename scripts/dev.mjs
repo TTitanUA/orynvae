@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,23 +63,46 @@ function spawnService(label, command, args, cwd) {
   return child;
 }
 
+function stopProcessTree(child) {
+  if (!child.pid || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  if (isWindows) {
+    spawnSync("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
+      stdio: "ignore",
+    });
+    return;
+  }
+
+  child.kill();
+}
+
 const backendDir = join(repoRoot, "backend");
 const frontendDir = join(repoRoot, "frontend");
+const backendPython = join(
+  backendDir,
+  ".venv",
+  isWindows ? "Scripts/python.exe" : "bin/python",
+);
 
 if (!existsSync(backendDir) || !existsSync(frontendDir)) {
   throw new Error("Run this script from the Orynvae repository.");
 }
 
-await runOnce("db-init", uvCommand, ["run", "db-init"], backendDir);
+if (!existsSync(backendPython)) {
+  await runOnce("backend-sync", uvCommand, ["sync"], backendDir);
+}
+await runOnce("db-init", uvCommand, ["run", "--no-sync", "python", "-m", "app.cli.db_init"], backendDir);
 
 const services = [
-  spawnService("backend", uvCommand, ["run", "dev"], backendDir),
+  spawnService("backend", uvCommand, ["run", "--no-sync", "python", "-m", "app.cli.dev"], backendDir),
   spawnService("frontend", pnpmCommand, ["dev"], frontendDir),
 ];
 
 function shutdown() {
   for (const service of services) {
-    service.kill();
+    stopProcessTree(service);
   }
 }
 
