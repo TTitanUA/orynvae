@@ -25,6 +25,57 @@ Orynvae должен начинаться не с пустой формы, а с
 - Frontend: `http://localhost:9002`
 - Frontend проксирует API-запросы с `/api` на backend.
 
+### Разработка
+
+Требования для первого этапа:
+
+- Python 3.11+
+- `uv`
+- Node.js
+- `pnpm`
+
+Если Codex/PowerShell-сессия не видит глобальные инструменты, подключите локальный bootstrap:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+. .\scripts\tool-env.ps1
+uv --version
+pnpm --version
+```
+
+`scripts\dev.ps1` делает это автоматически. Если локальная политика PowerShell блокирует `.ps1`, запускайте Windows-обертку:
+
+```powershell
+.\scripts\dev.cmd
+```
+
+Первичная установка:
+
+```powershell
+cd backend
+uv sync --extra dev
+uv run db-init
+
+cd ..\frontend
+pnpm install
+```
+
+Запуск backend и frontend одной командой:
+
+```powershell
+.\scripts\dev.ps1
+```
+
+Отдельные команды:
+
+```powershell
+cd backend
+uv run dev
+
+cd ..\frontend
+pnpm dev
+```
+
 ## Live Mode
 
 В будущем Orynvae включает опциональный **Live Mode**: интерактивный режим, где пользователь может взять на себя роль одного или нескольких персонажей, выбирать действия и реплики, а AI превращает эти решения в художественный текст и сохраняет последствия для следующих глав.
@@ -34,3 +85,5 @@ Orynvae должен начинаться не с пустой формы, а с
 - [Концепт приложения](docs/concept.md)
 - [Этапы реализации MVP](docs/mvp.md)
 - [Техническая спецификация](docs/technical-spec.md)
+- [Общий план MVP](plans/mvp-implementation-plan.md)
+- [Задачи этапа 1](plans/stage-1-tasks.md)

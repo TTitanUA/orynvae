@@ -1,0 +1,89 @@
+.health-panel {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.health-panel__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.875rem;
+  align-items: center;
+}
+
+.health-panel__header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.health-panel__header p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.health-panel__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-accent);
+  background: var(--color-surface-subtle);
+}
+
+.health-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.health-panel__grid div {
+  min-width: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+}
+
+.health-panel__grid dt {
+  margin-bottom: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.health-panel__grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.health-panel__note {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 760px) {
+  .health-panel__header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .health-panel__header .status-pill {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .health-panel__grid {
+    grid-template-columns: 1fr;
+  }
+}
+

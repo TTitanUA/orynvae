@@ -1,0 +1,12 @@
+:root {
+  color-scheme: light;
+  --color-page: #f4f1ea;
+  --color-sidebar: #ebe7dd;
+  --color-surface: #fffdf8;
+  --color-surface-subtle: #f8f5ee;
+  --color-border: #d8d1c4;
+  --color-text: #23221f;
+  --color-text-muted: #6e675c;
+  --color-accent: #326f6b;
+}
+

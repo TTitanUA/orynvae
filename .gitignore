@@ -1,0 +1,32 @@
+# Runtime data
+data/*
+!data/.gitkeep
+!data/projects/
+!data/projects/.gitkeep
+!data/backups/
+!data/backups/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+backend/.venv/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local env
+.env
+.env.*
+!.env.example
+.tmp/
+tmp/
+.tools/
+
+# Logs
+*.log

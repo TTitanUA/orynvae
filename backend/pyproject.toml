@@ -1,0 +1,37 @@
+[project]
+name = "orynvae-backend"
+version = "0.1.0"
+description = "Local backend for the Orynvae authoring workspace."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "httpx>=0.27.0",
+  "pydantic>=2.7.0",
+  "python-multipart>=0.0.9",
+  "uvicorn[standard]>=0.30.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+db-init = "app.cli.db_init:main"
+dev = "app.cli.dev:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
