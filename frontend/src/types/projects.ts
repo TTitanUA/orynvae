@@ -124,6 +124,24 @@ export type ChapterPlan = {
   position: number;
 };
 
+export type SceneEditor = {
+  id?: string | null;
+  chapter_id?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  body: string;
+  position: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ChapterEditor = ChapterPlan & {
+  body: string;
+  scenes: SceneEditor[];
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type PlotBoard = {
   arcs: PlotArcWorkspace[];
   chapters: ChapterPlan[];
@@ -144,4 +162,32 @@ export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
   synopsis?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
+};
+
+export type ChapterEditorState = {
+  project: Project;
+  settings: WorkspaceSettings;
+  characters: CharacterWorkspace[];
+  arcs: PlotArcWorkspace[];
+  chapters: ChapterEditor[];
+  saved_at: string | null;
+};
+
+export type ChapterEditorPayload = {
+  chapters: ChapterEditor[];
+};
+
+export type ChapterAiAction = "continue" | "rewrite" | "critique" | "brainstorm";
+
+export type ChapterAiPayload = {
+  action: ChapterAiAction;
+  chapter_id?: string | null;
+  scene_id?: string | null;
+  selected_text?: string | null;
+  draft_text?: string | null;
+  instructions?: string | null;
+  provider_id?: string | null;
+  model_id?: string | null;
+  persona?: string | null;
+  stream?: boolean;
 };

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
+from fastapi.responses import StreamingResponse
 
 from app.models.projects import (
+    ChapterAiRequest,
+    ChapterEditorRecord,
+    ChapterEditorRecordSet,
+    ChapterEditorUpdate,
     ProjectCreate,
     ProjectRecord,
     ProjectSetupAnalysis,
@@ -70,6 +76,66 @@ def update_project_workspace(
     return workspace
 
 
+@router.get("/{project_id}/chapter-editor", response_model=ChapterEditorRecordSet)
+def get_chapter_editor(project_id: str) -> ChapterEditorRecordSet:
+    editor = project_store.get_chapter_editor(project_id)
+    if editor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return editor
+
+
+@router.put("/{project_id}/chapter-editor", response_model=ChapterEditorRecordSet)
+def update_chapter_editor(
+    project_id: str,
+    payload: ChapterEditorUpdate,
+) -> ChapterEditorRecordSet:
+    editor = project_store.update_chapter_editor(project_id, payload)
+    if editor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return editor
+
+
+@router.post("/{project_id}/chapter-editor/assist")
+async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> Response:
+    editor = project_store.get_chapter_editor(project_id)
+    if editor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    provider_id = payload.provider_id or editor.project.provider_id
+    model_id = payload.model_id or editor.project.model_id
+    if not provider_id or not model_id:
+        return Response(
+            content=_fallback_chapter_assist(editor, payload),
+            media_type="text/plain; charset=utf-8",
+        )
+
+    stored = provider_store.get_provider(provider_id)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+
+    adapter = create_adapter(stored.provider, stored.api_key)
+    messages = _chapter_assist_messages(editor, payload)
+    temperature = _chapter_temperature(payload.action)
+    if payload.stream and stored.provider.streaming_enabled:
+        return StreamingResponse(
+            _stream_chunks(
+                adapter.stream_chat(
+                    model_id=model_id,
+                    messages=messages,
+                    temperature=temperature,
+                )
+            ),
+            media_type="text/plain; charset=utf-8",
+        )
+
+    text = await adapter.complete_chat(
+        model_id=model_id,
+        messages=messages,
+        temperature=temperature,
+    )
+    return Response(content=text, media_type="text/plain; charset=utf-8")
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def archive_project(project_id: str) -> Response:
     if not project_store.archive_project(project_id):
@@ -81,6 +147,173 @@ def archive_project(project_id: str) -> Response:
 def create_project_from_setup(payload: ProjectSetupCreate) -> ProjectRecord:
     _validate_provider_selection(payload.provider_id, payload.model_id)
     return project_store.create_project_from_setup(payload)
+
+
+async def _stream_chunks(chunks: AsyncIterator[str]) -> AsyncIterator[bytes]:
+    async for chunk in chunks:
+        yield chunk.encode("utf-8")
+
+
+def _chapter_temperature(action: str) -> float:
+    if action in {"continue", "brainstorm"}:
+        return 0.72
+    if action == "rewrite":
+        return 0.48
+    return 0.25
+
+
+def _chapter_assist_messages(
+    editor: ChapterEditorRecordSet,
+    payload: ChapterAiRequest,
+) -> list[ChatMessage]:
+    chapter = _find_chapter(editor.chapters, payload.chapter_id)
+    scene = _find_scene(chapter, payload.scene_id)
+    action_instruction = {
+        "continue": (
+            "Continue the draft from the current ending. Keep continuity, voice, POV, "
+            "and pacing. Return prose only unless the user asks for notes."
+        ),
+        "rewrite": (
+            "Rewrite the selected passage or draft according to the instruction. Preserve "
+            "story facts and return the revised prose only."
+        ),
+        "critique": (
+            "Give concise editorial feedback. Focus on story logic, character motivation, "
+            "voice, tension, and concrete next edits."
+        ),
+        "brainstorm": (
+            "Generate useful chapter options. Provide compact bullets with scene beats, "
+            "character choices, and complications."
+        ),
+    }[payload.action]
+    scene_body = getattr(scene, "body", None) if scene is not None else None
+    draft = payload.selected_text or payload.draft_text or scene_body
+    if draft is None and chapter is not None:
+        draft = chapter.body
+
+    return [
+        ChatMessage(
+            role="system",
+            content=(
+                "You are Orynvae's chapter editor assistant for fiction authors. "
+                "Respect the project canon and existing character arcs. Match the language "
+                "and tone of the draft unless the user explicitly asks otherwise."
+            ),
+        ),
+        ChatMessage(
+            role="user",
+            content="\n\n".join(
+                part
+                for part in [
+                    _editor_context(editor),
+                    _chapter_context(chapter, scene),
+                    f"Task: {action_instruction}",
+                    f"Persona / focus: {payload.persona}" if payload.persona else "",
+                    f"User instruction: {payload.instructions}" if payload.instructions else "",
+                    f"Draft:\n{draft}" if draft else "Draft: no prose has been written yet.",
+                ]
+                if part
+            ),
+        ),
+    ]
+
+
+def _fallback_chapter_assist(
+    editor: ChapterEditorRecordSet,
+    payload: ChapterAiRequest,
+) -> str:
+    chapter = _find_chapter(editor.chapters, payload.chapter_id)
+    title = chapter.title if chapter else "the current chapter"
+    if payload.action == "critique":
+        return (
+            f"Editorial pass for {title}:\n"
+            "- Clarify the immediate character goal before the next beat.\n"
+            "- Tie the scene turn back to the project conflict.\n"
+            "- Add one sensory detail that belongs to this world, not a generic room.\n"
+            "- End the passage on a decision, discovery, or cost."
+        )
+    if payload.action == "brainstorm":
+        return (
+            f"Options for {title}:\n"
+            "- Open with a small contradiction in the canon notes.\n"
+            "- Let a supporting character force the protagonist to choose a side.\n"
+            "- Turn the chapter summary into three beats: pressure, reveal, consequence.\n"
+            "- Carry one image from the synopsis into the closing paragraph."
+        )
+    if payload.action == "rewrite":
+        source = payload.selected_text or payload.draft_text or (chapter.body if chapter else "")
+        return source.strip() or f"Draft a sharper version of {title} around one clear choice."
+    return (
+        f"Continue {title} by moving from the last concrete action into a new complication. "
+        "Keep the point of view close, make the next choice visible, and let the chapter "
+        "end with a changed problem."
+    )
+
+
+def _editor_context(editor: ChapterEditorRecordSet) -> str:
+    settings = editor.settings
+    characters = ", ".join(
+        f"{character.name} ({character.role or 'role open'})" for character in editor.characters[:8]
+    )
+    arcs = "; ".join(arc.title for arc in editor.arcs[:6])
+    return "\n".join(
+        part
+        for part in [
+            f"Project: {editor.project.name}",
+            f"Synopsis: {editor.project.synopsis}" if editor.project.synopsis else "",
+            f"Genre: {settings.genre}" if settings.genre else "",
+            f"Tone: {settings.tone}" if settings.tone else "",
+            f"Setting: {settings.setting}" if settings.setting else "",
+            f"Point of view: {settings.point_of_view}" if settings.point_of_view else "",
+            f"Central conflict: {settings.central_conflict}" if settings.central_conflict else "",
+            f"Themes: {', '.join(settings.themes)}" if settings.themes else "",
+            f"Characters: {characters}" if characters else "",
+            f"Arcs: {arcs}" if arcs else "",
+        ]
+        if part
+    )
+
+
+def _chapter_context(
+    chapter: ChapterEditorRecord | None,
+    scene: object | None,
+) -> str:
+    if chapter is None:
+        return ""
+    scene_summary = ""
+    if scene is not None:
+        scene_title = getattr(scene, "title", None) or "Untitled scene"
+        scene_summary = f"Scene: {scene_title}\nScene summary: {getattr(scene, 'summary', '') or ''}"
+    return "\n".join(
+        part
+        for part in [
+            f"Chapter: {chapter.title}",
+            f"Chapter summary: {chapter.summary}" if chapter.summary else "",
+            f"Chapter status: {chapter.status}",
+            scene_summary,
+        ]
+        if part
+    )
+
+
+def _find_chapter(
+    chapters: list[ChapterEditorRecord],
+    chapter_id: str | None,
+) -> ChapterEditorRecord | None:
+    if chapter_id:
+        for chapter in chapters:
+            if chapter.id == chapter_id:
+                return chapter
+    return chapters[0] if chapters else None
+
+
+def _find_scene(chapter: ChapterEditorRecord | None, scene_id: str | None) -> object | None:
+    if chapter is None or not scene_id:
+        return None
+    for scene in chapter.scenes:
+        if scene.id == scene_id:
+            return scene
+    return None
 
 
 @router.post("/setup/analyze", response_model=ProjectSetupAnalysis)

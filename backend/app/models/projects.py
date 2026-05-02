@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -148,6 +148,24 @@ class ChapterPlanRecord(BaseModel):
     position: int = 0
 
 
+class SceneEditorRecord(BaseModel):
+    id: str | None = None
+    chapter_id: str | None = None
+    title: str | None = Field(default=None, max_length=160)
+    summary: str | None = Field(default=None, max_length=5000)
+    body: str = Field(default="", max_length=80000)
+    position: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class ChapterEditorRecord(ChapterPlanRecord):
+    body: str = Field(default="", max_length=180000)
+    scenes: list[SceneEditorRecord] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class PlotBoardRecord(BaseModel):
     arcs: list[PlotArcWorkspaceRecord] = Field(default_factory=list)
     chapters: list[ChapterPlanRecord] = Field(default_factory=list)
@@ -173,3 +191,32 @@ class ProjectWorkspaceUpdate(BaseModel):
     world_bible: WorldBibleRecord = Field(default_factory=WorldBibleRecord)
     characters: list[CharacterWorkspaceRecord] = Field(default_factory=list)
     plot_board: PlotBoardRecord = Field(default_factory=PlotBoardRecord)
+
+
+class ChapterEditorRecordSet(BaseModel):
+    project: ProjectRecord
+    settings: WorkspaceSettings
+    characters: list[CharacterWorkspaceRecord] = Field(default_factory=list)
+    arcs: list[PlotArcWorkspaceRecord] = Field(default_factory=list)
+    chapters: list[ChapterEditorRecord] = Field(default_factory=list)
+    saved_at: str | None = None
+
+
+class ChapterEditorUpdate(BaseModel):
+    chapters: list[ChapterEditorRecord] = Field(default_factory=list)
+
+
+ChapterAiAction = Literal["continue", "rewrite", "critique", "brainstorm"]
+
+
+class ChapterAiRequest(BaseModel):
+    action: ChapterAiAction
+    chapter_id: str | None = None
+    scene_id: str | None = None
+    selected_text: str | None = Field(default=None, max_length=20000)
+    draft_text: str | None = Field(default=None, max_length=60000)
+    instructions: str | None = Field(default=None, max_length=4000)
+    provider_id: str | None = None
+    model_id: str | None = None
+    persona: str | None = Field(default=None, max_length=1200)
+    stream: bool = True

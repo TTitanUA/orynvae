@@ -24,6 +24,15 @@ class FakeProjectSetupAdapter:
         """
 
 
+class FakeChapterAdapter:
+    async def complete_chat(self, *, model_id, messages, temperature):
+        return f"complete:{model_id}:{messages[-1].content[:18]}"
+
+    async def stream_chat(self, *, model_id, messages, temperature):
+        yield "streamed "
+        yield "chapter help"
+
+
 def test_project_setup_fallback_and_create(tmp_path, monkeypatch):
     monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
     client = TestClient(app)
@@ -198,3 +207,73 @@ def test_project_workspace_round_trip(tmp_path, monkeypatch):
     assert body["world_bible"]["rules"][0]["title"] == "Dream maps are legal records"
     assert body["characters"][0]["name"] == "Mira"
     assert body["plot_board"]["chapters"][0]["status"] == "planned"
+
+
+def test_chapter_editor_round_trip_and_ai_assist(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(projects_api, "create_adapter", lambda provider, api_key: FakeChapterAdapter())
+    client = TestClient(app)
+
+    provider = client.post(
+        "/api/providers",
+        json={"type": "lmstudio", "name": "Chapter model", "default_model_id": "draft"},
+    ).json()
+    project = client.post(
+        "/api/projects/setup",
+        json={
+            "name": "Archive City",
+            "idea_text": "A cartographer maps dreams.",
+            "description": "Dream maps for a city.",
+            "synopsis": "A city searches for the sea it forgot.",
+            "provider_id": provider["id"],
+            "model_id": "draft",
+        },
+    ).json()
+
+    saved = client.put(
+        f"/api/projects/{project['id']}/chapter-editor",
+        json={
+            "chapters": [
+                {
+                    "id": "chapter-1",
+                    "title": "The Saltless Harbor",
+                    "summary": "Mira finds a map that smells like rain.",
+                    "status": "draft",
+                    "position": 0,
+                    "body": "Mira opened the forbidden atlas.",
+                    "scenes": [
+                        {
+                            "id": "scene-1",
+                            "title": "The map room",
+                            "summary": "A hidden shelf moves.",
+                            "body": "Dust lifted from the brass rails.",
+                            "position": 0,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["chapters"][0]["body"] == "Mira opened the forbidden atlas."
+    assert body["chapters"][0]["scenes"][0]["title"] == "The map room"
+
+    loaded = client.get(f"/api/projects/{project['id']}/chapter-editor")
+    assert loaded.status_code == 200
+    assert loaded.json()["chapters"][0]["scenes"][0]["body"] == "Dust lifted from the brass rails."
+
+    streamed = client.post(
+        f"/api/projects/{project['id']}/chapter-editor/assist",
+        json={
+            "action": "continue",
+            "chapter_id": "chapter-1",
+            "scene_id": "scene-1",
+            "draft_text": "Dust lifted from the brass rails.",
+            "stream": True,
+        },
+    )
+
+    assert streamed.status_code == 200
+    assert streamed.text == "streamed chapter help"

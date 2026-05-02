@@ -1,0 +1,7 @@
+- [x] Inspect existing project workspace, data model, AI provider, and frontend navigation patterns.
+- [x] Add backend chapter/scene editing APIs with persistence, save-state metadata, and tests.
+- [x] Add backend AI chapter assistance endpoints for continue, rewrite, critique, and brainstorming with streaming/cancel support where supported.
+- [x] Build the frontend Chapter Editor experience with chapter/scene selection, save status, persona/context controls, and AI action panel.
+- [x] Wire frontend API clients and state handling for save, AI suggestions, streaming output, and stop controls.
+- [x] Run automated backend/frontend verification.
+- [x] Run the local dev launcher and manually verify the Chapter Editor flow in Chrome DevTools.
