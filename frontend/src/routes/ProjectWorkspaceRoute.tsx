@@ -3,16 +3,26 @@ import {
   BookMarked,
   Boxes,
   Brain,
+  CalendarDays,
   ChevronLeft,
   CirclePlus,
+  ClipboardCheck,
+  Link2,
   Map,
   PenLine,
   Save,
+  ShieldCheck,
+  Sparkles,
   Trash2,
   UsersRound,
 } from "lucide-react";
 
-import { fetchProjectWorkspace, updateProjectWorkspace } from "../api/projects";
+import {
+  continuitySeverityLabel,
+  fetchProjectWorkspace,
+  requestContinuityCheck,
+  updateProjectWorkspace,
+} from "../api/projects";
 import { enabledProviders, fetchProviders } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import { ChapterEditorPanel } from "./ChapterEditorPanel";
@@ -20,16 +30,21 @@ import type { Provider } from "../types/providers";
 import type {
   ChapterPlan,
   CharacterWorkspace,
+  CanonFact,
+  CanonFactLink,
+  CanonWorkspace,
+  ContinuityCheck,
   IdeaLab,
   PlotArcWorkspace,
   ProjectWorkspace,
+  TimelineEvent,
   WorkspaceSettings,
   WorldBible,
   WorldEntry,
 } from "../types/projects";
 import "./ProjectWorkspaceRoute.css";
 
-type WorkspaceTab = "overview" | "ideas" | "world" | "characters" | "plot" | "editor";
+type WorkspaceTab = "overview" | "ideas" | "world" | "characters" | "plot" | "canon" | "editor";
 
 const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof BookMarked }> = [
   { id: "overview", label: "Overview", icon: BookMarked },
@@ -37,6 +52,7 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof BookMarked }> 
   { id: "world", label: "World Bible", icon: Map },
   { id: "characters", label: "Characters", icon: UsersRound },
   { id: "plot", label: "Plot Board", icon: Boxes },
+  { id: "canon", label: "Canon", icon: ShieldCheck },
   { id: "editor", label: "Editor", icon: PenLine },
 ];
 
@@ -57,6 +73,35 @@ function text(value: string | null | undefined): string {
 
 function emptyEntry(title: string): WorldEntry {
   return { title, content: "", canon_status: "draft" };
+}
+
+function tempId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emptyFact(): CanonFact {
+  return {
+    id: tempId("fact"),
+    title: "New canon fact",
+    fact: "",
+    category: "general",
+    status: "confirmed",
+    source_type: null,
+    source_id: null,
+    notes: "",
+    links: [],
+  };
+}
+
+function emptyTimelineEvent(position: number): TimelineEvent {
+  return {
+    id: tempId("event"),
+    title: "New event",
+    summary: "",
+    event_time: "",
+    source_chapter_id: null,
+    position,
+  };
 }
 
 function defaultModelFor(provider?: Provider): string {
@@ -81,8 +126,11 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [checkingCanon, setCheckingCanon] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [continuityText, setContinuityText] = useState("");
+  const [continuityCheck, setContinuityCheck] = useState<ContinuityCheck>();
 
   const providerId = workspace?.project.provider_id;
   const selectedProvider = useMemo(
@@ -142,6 +190,34 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     );
   }
 
+  function updateCanon(patch: Partial<CanonWorkspace>) {
+    setWorkspace((current) =>
+      current ? { ...current, canon: { ...current.canon, ...patch } } : current,
+    );
+  }
+
+  async function runContinuityCheck() {
+    if (!workspace || !continuityText.trim()) {
+      return;
+    }
+    setCheckingCanon(true);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      const check = await requestContinuityCheck(projectId, {
+        text: continuityText,
+        provider_id: workspace.project.provider_id,
+        model_id: workspace.project.model_id,
+      });
+      setContinuityCheck(check);
+      setNotice("Continuity check ready for review.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Continuity check failed.");
+    } finally {
+      setCheckingCanon(false);
+    }
+  }
+
   async function saveWorkspace() {
     if (!workspace) {
       return;
@@ -162,6 +238,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
         world_bible: workspace.world_bible,
         characters: workspace.characters,
         plot_board: workspace.plot_board,
+        canon: workspace.canon,
       });
       setWorkspace(saved);
       setNotice("Workspace saved.");
@@ -542,6 +619,20 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
+        {activeTab === "canon" && (
+          <CanonPanel
+            canon={workspace.canon}
+            characters={workspace.characters}
+            chapters={workspace.plot_board.chapters}
+            checking={checkingCanon}
+            continuityCheck={continuityCheck}
+            continuityText={continuityText}
+            onCanonChange={updateCanon}
+            onContinuityTextChange={setContinuityText}
+            onRunContinuityCheck={() => void runContinuityCheck()}
+          />
+        )}
+
         {activeTab === "editor" && (
           <ChapterEditorPanel projectId={projectId} providers={activeProviders} />
         )}
@@ -570,6 +661,379 @@ function LineList({
       />
     </label>
   );
+}
+
+function CanonPanel({
+  canon,
+  characters,
+  chapters,
+  checking,
+  continuityCheck,
+  continuityText,
+  onCanonChange,
+  onContinuityTextChange,
+  onRunContinuityCheck,
+}: {
+  canon: CanonWorkspace;
+  characters: CharacterWorkspace[];
+  chapters: ChapterPlan[];
+  checking: boolean;
+  continuityCheck?: ContinuityCheck;
+  continuityText: string;
+  onCanonChange: (patch: Partial<CanonWorkspace>) => void;
+  onContinuityTextChange: (value: string) => void;
+  onRunContinuityCheck: () => void;
+}) {
+  function updateFact(index: number, patch: Partial<CanonFact>) {
+    onCanonChange({ facts: updateItem(canon.facts, index, patch) });
+  }
+
+  function updateTimeline(index: number, patch: Partial<TimelineEvent>) {
+    onCanonChange({ timeline: updateItem(canon.timeline, index, patch) });
+  }
+
+  function addSuggestedFact(fact: CanonFact) {
+    onCanonChange({
+      facts: [
+        {
+          ...fact,
+          id: tempId("fact"),
+          status: fact.status || "suggested",
+          links: fact.links || [],
+        },
+        ...canon.facts,
+      ],
+    });
+  }
+
+  return (
+    <section className="workspace-panel">
+      <div className="workspace-panel__heading">
+        <ShieldCheck size={18} aria-hidden="true" />
+        <h2>Canon & Timeline</h2>
+      </div>
+
+      <section className="workspace-subsection">
+        <div className="workspace-subsection__header">
+          <h3>Canon Facts</h3>
+          <button type="button" onClick={() => onCanonChange({ facts: [emptyFact(), ...canon.facts] })}>
+            <CirclePlus size={16} aria-hidden="true" />
+            Add fact
+          </button>
+        </div>
+        <div className="workspace-card-grid">
+          {canon.facts.map((fact, index) => (
+            <CanonFactCard
+              chapters={chapters}
+              characters={characters}
+              fact={fact}
+              index={index}
+              key={fact.id || index}
+              timeline={canon.timeline}
+              onChange={(patch) => updateFact(index, patch)}
+              onRemove={() => onCanonChange({ facts: removeItem(canon.facts, index) })}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="workspace-subsection">
+        <div className="workspace-subsection__header">
+          <h3>Timeline</h3>
+          <button
+            type="button"
+            onClick={() =>
+              onCanonChange({ timeline: [...canon.timeline, emptyTimelineEvent(canon.timeline.length)] })
+            }
+          >
+            <CalendarDays size={16} aria-hidden="true" />
+            Add event
+          </button>
+        </div>
+        <div className="workspace-card-grid">
+          {canon.timeline.map((event, index) => (
+            <article className="workspace-card" key={event.id || index}>
+              <div className="workspace-card__tools">
+                <input
+                  aria-label={`Timeline event ${index + 1} title`}
+                  name={`timeline-event-${index}-title`}
+                  value={event.title}
+                  onChange={(changeEvent) => updateTimeline(index, { title: changeEvent.target.value })}
+                />
+                <button
+                  type="button"
+                  aria-label="Remove timeline event"
+                  onClick={() => onCanonChange({ timeline: removeItem(canon.timeline, index) })}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </div>
+              <div className="workspace-grid is-two">
+                <label>
+                  When
+                  <input
+                    name={`timeline-event-${index}-time`}
+                    value={text(event.event_time)}
+                    onChange={(changeEvent) => updateTimeline(index, { event_time: changeEvent.target.value })}
+                  />
+                </label>
+                <label>
+                  Chapter
+                  <select
+                    name={`timeline-event-${index}-chapter`}
+                    value={event.source_chapter_id || ""}
+                    onChange={(changeEvent) =>
+                      updateTimeline(index, { source_chapter_id: changeEvent.target.value || null })
+                    }
+                  >
+                    <option value="">No chapter</option>
+                    {chapters.filter((chapter) => chapter.id).map((chapter) => (
+                      <option key={chapter.id} value={chapter.id || ""}>
+                        {chapter.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <textarea
+                name={`timeline-event-${index}-summary`}
+                rows={4}
+                value={text(event.summary)}
+                onChange={(changeEvent) => updateTimeline(index, { summary: changeEvent.target.value })}
+              />
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="workspace-subsection">
+        <div className="workspace-subsection__header">
+          <h3>Continuity Check</h3>
+          <button
+            type="button"
+            disabled={checking || !continuityText.trim()}
+            onClick={onRunContinuityCheck}
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            {checking ? "Checking" : "Run check"}
+          </button>
+        </div>
+        <label>
+          Passage to compare
+          <textarea
+            name="canon-continuity-text"
+            rows={6}
+            value={continuityText}
+            onChange={(event) => onContinuityTextChange(event.target.value)}
+          />
+        </label>
+        {continuityCheck && (
+          <div className="canon-review">
+            {continuityCheck.issues.map((issue) => (
+              <article className={`canon-review__issue is-${issue.severity}`} key={issue.id}>
+                <div>
+                  <strong>{continuitySeverityLabel(issue.severity)}</strong>
+                  <h4>{issue.summary}</h4>
+                  {issue.detail && <p>{issue.detail}</p>}
+                  {issue.related_fact_ids.length > 0 && (
+                    <small>Related: {issue.related_fact_ids.join(", ")}</small>
+                  )}
+                </div>
+                {issue.suggested_fact && (
+                  <button type="button" onClick={() => addSuggestedFact(issue.suggested_fact as CanonFact)}>
+                    <ClipboardCheck size={16} aria-hidden="true" />
+                    Add fact
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
+
+function CanonFactCard({
+  fact,
+  index,
+  characters,
+  chapters,
+  timeline,
+  onChange,
+  onRemove,
+}: {
+  fact: CanonFact;
+  index: number;
+  characters: CharacterWorkspace[];
+  chapters: ChapterPlan[];
+  timeline: TimelineEvent[];
+  onChange: (patch: Partial<CanonFact>) => void;
+  onRemove: () => void;
+}) {
+  function updateLink(linkIndex: number, patch: Partial<CanonFactLink>) {
+    onChange({ links: updateItem(fact.links, linkIndex, patch) });
+  }
+
+  function addLink() {
+    const targetType = characters.length > 0 ? "character" : chapters.length > 0 ? "chapter" : "world";
+    const options = linkOptions(targetType, characters, chapters, timeline);
+    onChange({
+      links: [
+        ...fact.links,
+        {
+          id: tempId("link"),
+          target_type: targetType,
+          target_id: options[0]?.id || "world",
+          label: options[0]?.label || "Project",
+        },
+      ],
+    });
+  }
+
+  return (
+    <article className="workspace-card canon-fact-card">
+      <div className="workspace-card__tools">
+        <input
+          aria-label={`Canon fact ${index + 1} title`}
+          name={`canon-fact-${index}-title`}
+          value={fact.title}
+          onChange={(event) => onChange({ title: event.target.value })}
+        />
+        <button type="button" aria-label="Remove canon fact" onClick={onRemove}>
+          <Trash2 size={16} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="workspace-grid is-two">
+        <label>
+          Category
+          <input
+            name={`canon-fact-${index}-category`}
+            value={fact.category}
+            onChange={(event) => onChange({ category: event.target.value })}
+          />
+        </label>
+        <label>
+          Status
+          <select
+            name={`canon-fact-${index}-status`}
+            value={fact.status}
+            onChange={(event) => onChange({ status: event.target.value })}
+          >
+            <option value="confirmed">Confirmed</option>
+            <option value="suggested">Suggested</option>
+            <option value="question">Question</option>
+            <option value="retired">Retired</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        Fact
+        <textarea
+          name={`canon-fact-${index}-fact`}
+          rows={4}
+          value={fact.fact}
+          onChange={(event) => onChange({ fact: event.target.value })}
+        />
+      </label>
+      <label>
+        Notes
+        <textarea
+          name={`canon-fact-${index}-notes`}
+          rows={3}
+          value={text(fact.notes)}
+          onChange={(event) => onChange({ notes: event.target.value })}
+        />
+      </label>
+      <section className="canon-links">
+        <div className="canon-links__header">
+          <span>
+            <Link2 size={14} aria-hidden="true" />
+            Links
+          </span>
+          <button type="button" onClick={addLink}>
+            <CirclePlus size={14} aria-hidden="true" />
+          </button>
+        </div>
+        {fact.links.map((link, linkIndex) => {
+          const options = linkOptions(link.target_type, characters, chapters, timeline);
+          return (
+            <div className="canon-link-row" key={link.id || linkIndex}>
+              <select
+                name={`canon-fact-${index}-link-${linkIndex}-type`}
+                value={link.target_type}
+                onChange={(event) => {
+                  const nextType = event.target.value as CanonFactLink["target_type"];
+                  const nextOptions = linkOptions(nextType, characters, chapters, timeline);
+                  updateLink(linkIndex, {
+                    target_type: nextType,
+                    target_id: nextOptions[0]?.id || "world",
+                    label: nextOptions[0]?.label || "Project",
+                  });
+                }}
+              >
+                <option value="character">Character</option>
+                <option value="chapter">Chapter</option>
+                <option value="event">Event</option>
+                <option value="world">World</option>
+              </select>
+              <select
+                name={`canon-fact-${index}-link-${linkIndex}-target`}
+                value={link.target_id}
+                onChange={(event) => {
+                  const option = options.find((item) => item.id === event.target.value);
+                  updateLink(linkIndex, {
+                    target_id: event.target.value,
+                    label: option?.label || event.target.value,
+                  });
+                }}
+              >
+                {options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="Remove canon link"
+                onClick={() => onChange({ links: removeItem(fact.links, linkIndex) })}
+              >
+                <Trash2 size={14} aria-hidden="true" />
+              </button>
+            </div>
+          );
+        })}
+      </section>
+    </article>
+  );
+}
+
+function linkOptions(
+  type: CanonFactLink["target_type"],
+  characters: CharacterWorkspace[],
+  chapters: ChapterPlan[],
+  timeline: TimelineEvent[],
+): Array<{ id: string; label: string }> {
+  if (type === "character") {
+    return characters.map((character) => ({
+      id: character.id || character.name,
+      label: character.name,
+    }));
+  }
+  if (type === "chapter") {
+    return chapters.map((chapter) => ({
+      id: chapter.id || chapter.title,
+      label: chapter.title,
+    }));
+  }
+  if (type === "event") {
+    return timeline.map((event) => ({
+      id: event.id || event.title,
+      label: event.title,
+    }));
+  }
+  return [{ id: "world", label: "Project world" }];
 }
 
 function WorldSection({

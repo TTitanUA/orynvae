@@ -277,3 +277,94 @@ def test_chapter_editor_round_trip_and_ai_assist(tmp_path, monkeypatch):
 
     assert streamed.status_code == 200
     assert streamed.text == "streamed chapter help"
+
+
+def test_canon_workspace_round_trip_and_continuity_check(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+
+    project = client.post(
+        "/api/projects/setup",
+        json={
+            "name": "Archive City",
+            "idea_text": "A cartographer maps dreams.",
+            "description": "Dream maps for a city.",
+            "synopsis": "A city searches for the sea it forgot.",
+        },
+    ).json()
+
+    saved = client.put(
+        f"/api/projects/{project['id']}/workspace",
+        json={
+            "name": "Archive City",
+            "description": "Dream maps for a city.",
+            "synopsis": "A city searches for the sea it forgot.",
+            "settings": {},
+            "idea_lab": {},
+            "world_bible": {"rules": [], "locations": [], "factions": []},
+            "characters": [
+                {
+                    "id": "mira",
+                    "name": "Mira",
+                    "role": "cartographer",
+                }
+            ],
+            "plot_board": {
+                "arcs": [],
+                "chapters": [
+                    {
+                        "id": "chapter-1",
+                        "title": "The Saltless Harbor",
+                        "summary": "Mira finds a forbidden map.",
+                        "status": "planned",
+                        "position": 0,
+                    }
+                ],
+            },
+            "canon": {
+                "facts": [
+                    {
+                        "id": "fact-1",
+                        "title": "The sea was erased",
+                        "fact": "The city once had a sea, but public memory of it was removed.",
+                        "category": "world",
+                        "status": "confirmed",
+                        "links": [
+                            {
+                                "target_type": "character",
+                                "target_id": "mira",
+                                "label": "Mira",
+                            }
+                        ],
+                    }
+                ],
+                "timeline": [
+                    {
+                        "id": "event-1",
+                        "title": "The harbor forgets salt",
+                        "summary": "The first public memory edit lands.",
+                        "event_time": "before chapter 1",
+                        "source_chapter_id": "chapter-1",
+                        "position": 0,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["canon"]["facts"][0]["title"] == "The sea was erased"
+    assert body["canon"]["facts"][0]["links"][0]["target_id"] == "mira"
+    assert body["canon"]["timeline"][0]["source_chapter_id"] == "chapter-1"
+
+    checked = client.post(
+        f"/api/projects/{project['id']}/canon/check",
+        json={"text": "Mira says the erased sea still appears on forbidden maps."},
+    )
+
+    assert checked.status_code == 200
+    check = checked.json()
+    assert check["project_id"] == project["id"]
+    assert check["issues"]
+    assert any(issue["suggested_fact"] for issue in check["issues"])

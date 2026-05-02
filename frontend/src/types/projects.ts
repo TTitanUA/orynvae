@@ -147,6 +147,43 @@ export type PlotBoard = {
   chapters: ChapterPlan[];
 };
 
+export type CanonFactLink = {
+  id?: string | null;
+  target_type: "character" | "chapter" | "scene" | "event" | "world";
+  target_id: string;
+  label?: string | null;
+};
+
+export type CanonFact = {
+  id?: string | null;
+  title: string;
+  fact: string;
+  category: string;
+  status: string;
+  source_type?: string | null;
+  source_id?: string | null;
+  notes?: string | null;
+  links: CanonFactLink[];
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type TimelineEvent = {
+  id?: string | null;
+  title: string;
+  summary?: string | null;
+  event_time?: string | null;
+  source_chapter_id?: string | null;
+  position: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type CanonWorkspace = {
+  facts: CanonFact[];
+  timeline: TimelineEvent[];
+};
+
 export type ProjectWorkspace = {
   project: Project;
   settings: WorkspaceSettings;
@@ -154,6 +191,7 @@ export type ProjectWorkspace = {
   world_bible: WorldBible;
   characters: CharacterWorkspace[];
   plot_board: PlotBoard;
+  canon: CanonWorkspace;
 };
 
 export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
@@ -190,4 +228,27 @@ export type ChapterAiPayload = {
   model_id?: string | null;
   persona?: string | null;
   stream?: boolean;
+};
+
+export type ContinuityCheckPayload = {
+  text: string;
+  chapter_id?: string | null;
+  provider_id?: string | null;
+  model_id?: string | null;
+};
+
+export type ContinuityIssue = {
+  id: string;
+  severity: "info" | "warning" | "conflict";
+  summary: string;
+  detail?: string | null;
+  related_fact_ids: string[];
+  suggested_fact?: CanonFact | null;
+};
+
+export type ContinuityCheck = {
+  id: string;
+  project_id: string;
+  issues: ContinuityIssue[];
+  created_at: string;
 };
