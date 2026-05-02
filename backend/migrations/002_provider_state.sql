@@ -1,0 +1,6 @@
+ALTER TABLE model_providers
+ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE model_providers
+ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0;
+

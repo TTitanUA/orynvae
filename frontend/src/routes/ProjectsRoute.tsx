@@ -15,7 +15,7 @@ import {
   fetchProjects,
   projectStatusLabel,
 } from "../api/projects";
-import { fetchProviders, providerScopeLabel } from "../api/providers";
+import { enabledProviders, fetchProviders, preferredProvider, providerScopeLabel } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import type { Project, ProjectSetupAnalysis } from "../types/projects";
 import type { Provider } from "../types/providers";
@@ -116,9 +116,7 @@ export function ProjectsRoute() {
         }
         setProjects(nextProjects);
         setProviders(nextProviders);
-        const firstReadyProvider =
-          nextProviders.find((provider) => provider.default_model_id || provider.models.length > 0) ||
-          nextProviders[0];
+        const firstReadyProvider = preferredProvider(nextProviders);
         if (firstReadyProvider) {
           setSelectedProviderId(firstReadyProvider.id);
           setSelectedModelId(defaultModelFor(firstReadyProvider));
@@ -260,7 +258,7 @@ export function ProjectsRoute() {
                   onChange={(event) => updateProvider(event.target.value)}
                 >
                   <option value="">Без AI</option>
-                  {providers.map((provider) => (
+                  {enabledProviders(providers).map((provider) => (
                     <option key={provider.id} value={provider.id}>
                       {provider.name} · {providerScopeLabel(provider)}
                     </option>

@@ -168,6 +168,11 @@
   color: #ffffff;
 }
 
+.provider-route__button.is-danger {
+  border-color: #c58f89;
+  color: #8d302b;
+}
+
 .provider-route__button:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -212,6 +217,29 @@
   color: #1d5e4c;
 }
 
+.provider-card__scope.is-default {
+  border-color: #b9a15a;
+  background: #fff9df;
+  color: #6c5410;
+}
+
+.provider-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: end;
+}
+
+.provider-card.is-disabled {
+  background: var(--color-surface-subtle);
+}
+
+.provider-card.is-disabled .provider-card__icon,
+.provider-card.is-disabled h2,
+.provider-card.is-disabled p {
+  opacity: 0.68;
+}
+
 .provider-card__meta,
 .provider-card__actions {
   display: flex;
@@ -254,5 +282,9 @@
 
   .provider-card__scope {
     justify-self: start;
+  }
+
+  .provider-card__badges {
+    justify-content: start;
   }
 }

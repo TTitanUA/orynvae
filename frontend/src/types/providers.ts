@@ -33,6 +33,8 @@ export type Provider = {
   has_api_key: boolean;
   is_local: boolean;
   is_external: boolean;
+  is_enabled: boolean;
+  is_default: boolean;
   streaming_enabled: boolean;
   models_path: string | null;
   chat_path: string | null;
@@ -50,9 +52,23 @@ export type ProviderCreatePayload = {
   base_url?: string;
   api_key?: string;
   is_local?: boolean;
+  is_enabled?: boolean;
+  is_default?: boolean;
   streaming_enabled: boolean;
   models_path?: string;
   chat_path?: string;
+};
+
+export type ProviderUpdatePayload = {
+  name?: string;
+  base_url?: string | null;
+  api_key?: string | null;
+  is_local?: boolean;
+  is_enabled?: boolean;
+  streaming_enabled?: boolean;
+  models_path?: string | null;
+  chat_path?: string | null;
+  default_model_id?: string | null;
 };
 
 export type ProviderTestResponse = {

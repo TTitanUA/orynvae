@@ -44,6 +44,8 @@ def _provider_from_row(row: sqlite3.Row) -> ProviderRecord:
         has_api_key=bool(row["api_key"]),
         is_local=_bool(row["is_local"]),
         is_external=not _bool(row["is_local"]),
+        is_enabled=_bool(row["is_enabled"]),
+        is_default=_bool(row["is_default"]),
         streaming_enabled=_bool(row["streaming_enabled"]),
         models_path=row["models_path"],
         chat_path=row["chat_path"],
@@ -79,7 +81,7 @@ def list_providers() -> list[ProviderRecord]:
             """
             SELECT *
             FROM model_providers
-            ORDER BY updated_at DESC, name ASC
+            ORDER BY is_default DESC, is_enabled DESC, updated_at DESC, name ASC
             """
         ).fetchall()
     return [_provider_from_row(row) for row in rows]
@@ -119,13 +121,19 @@ def create_provider(payload: ProviderCreate) -> ProviderRecord:
     is_local = defaults.is_local if payload.is_local is None else payload.is_local
 
     with _connection() as connection:
+        provider_count = connection.execute(
+            "SELECT COUNT(*) FROM model_providers"
+        ).fetchone()
+        is_default = payload.is_default or int(provider_count[0]) == 0
+        if is_default:
+            connection.execute("UPDATE model_providers SET is_default = 0")
         connection.execute(
             """
             INSERT INTO model_providers (
-              id, type, name, base_url, api_key, is_local, streaming_enabled,
+              id, type, name, base_url, api_key, is_local, is_enabled, is_default, streaming_enabled,
               models_path, chat_path, default_model_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 provider_id,
@@ -134,6 +142,8 @@ def create_provider(payload: ProviderCreate) -> ProviderRecord:
                 base_url,
                 payload.api_key,
                 int(is_local),
+                int(payload.is_enabled),
+                int(is_default),
                 int(payload.streaming_enabled),
                 models_path,
                 chat_path,
@@ -157,13 +167,19 @@ def update_provider(provider_id: str, payload: ProviderUpdate) -> ProviderRecord
     if not values:
         return stored.provider
 
+    is_disabling_default = (
+        values.get("is_enabled") is False
+        and stored.provider.is_default
+    )
     assignments: list[str] = []
     parameters: list[object] = []
     for key, value in values.items():
-        if key in {"is_local", "streaming_enabled"} and value is not None:
+        if key in {"is_local", "is_enabled", "streaming_enabled"} and value is not None:
             value = int(value)
         assignments.append(f"{key} = ?")
         parameters.append(value)
+    if is_disabling_default:
+        assignments.append("is_default = 0")
     assignments.append("updated_at = CURRENT_TIMESTAMP")
     parameters.append(provider_id)
 
@@ -248,6 +264,29 @@ def set_default_model(provider_id: str, model_id: str | None) -> ProviderRecord 
         return None
     stored = get_provider(provider_id)
     return stored.provider if stored else None
+
+
+def set_default_provider(provider_id: str) -> ProviderRecord | None:
+    stored = get_provider(provider_id)
+    if stored is None:
+        return None
+
+    with _connection() as connection:
+        connection.execute("UPDATE model_providers SET is_default = 0")
+        connection.execute(
+            """
+            UPDATE model_providers
+            SET is_default = 1,
+                is_enabled = 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (provider_id,),
+        )
+        connection.commit()
+
+    updated = get_provider(provider_id)
+    return updated.provider if updated else None
 
 
 def set_project_model(selection: ProjectModelSelection) -> ProjectModelSelection | None:

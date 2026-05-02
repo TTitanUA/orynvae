@@ -5,19 +5,26 @@ import {
   KeyRound,
   Monitor,
   PlugZap,
+  Power,
+  PowerOff,
   RefreshCw,
   Save,
   ServerCog,
+  Star,
+  Trash2,
 } from "lucide-react";
 
 import {
   createProvider,
+  deleteProvider,
   fetchProviderDefaults,
   fetchProviders,
   providerScopeLabel,
   refreshProviderModels,
+  setDefaultProvider,
   setProviderDefaultModel,
   testProvider,
+  updateProvider,
 } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import type { Provider, ProviderCreatePayload, ProviderDefaults, ProviderType } from "../types/providers";
@@ -175,7 +182,10 @@ export function ProviderSettingsRoute() {
     }
   }
 
-  async function runProviderAction(provider: Provider, action: "test" | "refresh" | "save") {
+  async function runProviderAction(
+    provider: Provider,
+    action: "test" | "refresh" | "save" | "toggle" | "default" | "delete",
+  ) {
     setBusyProviderId(provider.id);
     setError(undefined);
     setNotice(undefined);
@@ -192,6 +202,22 @@ export function ProviderSettingsRoute() {
         const modelId = selectedModels[provider.id] || null;
         await setProviderDefaultModel(provider.id, modelId);
         setNotice(`${provider.name}: модель выбрана`);
+      }
+      if (action === "toggle") {
+        const nextEnabled = !provider.is_enabled;
+        await updateProvider(provider.id, { is_enabled: nextEnabled });
+        setNotice(`${provider.name}: ${nextEnabled ? "провайдер включен" : "провайдер отключен"}`);
+      }
+      if (action === "default") {
+        await setDefaultProvider(provider.id);
+        setNotice(`${provider.name}: провайдер по умолчанию`);
+      }
+      if (action === "delete") {
+        if (!window.confirm(`Удалить провайдера "${provider.name}"? Проекты потеряют ссылку на него.`)) {
+          return;
+        }
+        await deleteProvider(provider.id);
+        setNotice(`${provider.name}: провайдер удален`);
       }
       await loadProviderState();
     } catch (reason) {
@@ -220,7 +246,7 @@ export function ProviderSettingsRoute() {
             </span>
             <span>
               <CheckCircle2 size={16} aria-hidden="true" />
-              {providers.filter((provider) => provider.default_model_id).length}
+              {providers.filter((provider) => provider.is_enabled).length}
             </span>
           </div>
         </header>
@@ -349,20 +375,32 @@ export function ProviderSettingsRoute() {
             {!loading && providers.length === 0 && <div className="provider-route__empty">Провайдеров нет</div>}
 
             {providers.map((provider) => (
-              <article className="provider-card" key={provider.id}>
+              <article
+                className={`provider-card ${provider.is_enabled ? "" : "is-disabled"}`}
+                key={provider.id}
+              >
                 <div className="provider-card__header">
                   <div className="provider-card__icon">{providerIcon(provider)}</div>
                   <div>
                     <h2>{provider.name}</h2>
                     <p>{provider.base_url}</p>
                   </div>
-                  <span className={`provider-card__scope ${provider.is_external ? "is-external" : "is-local"}`}>
-                    {providerScopeLabel(provider)}
-                  </span>
+                  <div className="provider-card__badges">
+                    {provider.is_default && (
+                      <span className="provider-card__scope is-default">
+                        <Star size={14} aria-hidden="true" />
+                        Основной
+                      </span>
+                    )}
+                    <span className={`provider-card__scope ${provider.is_external ? "is-external" : "is-local"}`}>
+                      {providerScopeLabel(provider)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="provider-card__meta">
                   <span>{provider.type}</span>
+                  <span>{provider.is_enabled ? "enabled" : "disabled"}</span>
                   <span>{provider.streaming_enabled ? "streaming" : "single response"}</span>
                   <span>{provider.has_api_key ? "key saved" : "no key"}</span>
                   <span>{provider.last_checked_at ? "checked" : "not checked"}</span>
@@ -375,6 +413,7 @@ export function ProviderSettingsRoute() {
                       id={`provider-model-${provider.id}`}
                       name={`provider-model-${provider.id}`}
                       value={selectedModels[provider.id] || ""}
+                      disabled={!provider.is_enabled}
                       onChange={(event) =>
                         setSelectedModels({ ...selectedModels, [provider.id]: event.target.value })
                       }
@@ -390,7 +429,7 @@ export function ProviderSettingsRoute() {
                   <button
                     className="provider-route__button"
                     type="button"
-                    disabled={busyProviderId === provider.id}
+                    disabled={busyProviderId === provider.id || !provider.is_enabled}
                     onClick={() => void runProviderAction(provider, "save")}
                     title="Сохранить модель"
                   >
@@ -404,6 +443,30 @@ export function ProviderSettingsRoute() {
                     className="provider-route__button"
                     type="button"
                     disabled={busyProviderId === provider.id}
+                    onClick={() => void runProviderAction(provider, "toggle")}
+                    title={provider.is_enabled ? "Отключить провайдера" : "Включить провайдера"}
+                  >
+                    {provider.is_enabled ? (
+                      <PowerOff size={16} aria-hidden="true" />
+                    ) : (
+                      <Power size={16} aria-hidden="true" />
+                    )}
+                    {provider.is_enabled ? "Отключить" : "Включить"}
+                  </button>
+                  <button
+                    className="provider-route__button"
+                    type="button"
+                    disabled={busyProviderId === provider.id || !provider.is_enabled || provider.is_default}
+                    onClick={() => void runProviderAction(provider, "default")}
+                    title="Сделать провайдером по умолчанию"
+                  >
+                    <Star size={16} aria-hidden="true" />
+                    Основной
+                  </button>
+                  <button
+                    className="provider-route__button"
+                    type="button"
+                    disabled={busyProviderId === provider.id || !provider.is_enabled}
                     onClick={() => void runProviderAction(provider, "test")}
                     title="Проверить подключение"
                   >
@@ -413,12 +476,22 @@ export function ProviderSettingsRoute() {
                   <button
                     className="provider-route__button"
                     type="button"
-                    disabled={busyProviderId === provider.id}
+                    disabled={busyProviderId === provider.id || !provider.is_enabled}
                     onClick={() => void runProviderAction(provider, "refresh")}
                     title="Обновить список моделей"
                   >
                     <RefreshCw size={16} aria-hidden="true" />
                     Модели
+                  </button>
+                  <button
+                    className="provider-route__button is-danger"
+                    type="button"
+                    disabled={busyProviderId === provider.id}
+                    onClick={() => void runProviderAction(provider, "delete")}
+                    title="Удалить провайдера"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Удалить
                   </button>
                 </div>
 

@@ -112,6 +112,8 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
     stored = provider_store.get_provider(provider_id)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
 
     adapter = create_adapter(stored.provider, stored.api_key)
     messages = _chapter_assist_messages(editor, payload)
@@ -326,6 +328,8 @@ async def analyze_project_setup(payload: ProjectSetupAnalysisRequest) -> Project
     stored = provider_store.get_provider(payload.provider_id)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
 
     adapter = create_adapter(stored.provider, stored.api_key)
     try:

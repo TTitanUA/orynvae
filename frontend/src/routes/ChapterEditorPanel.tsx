@@ -53,6 +53,14 @@ function defaultModelFor(provider?: Provider): string {
   return provider?.default_model_id || provider?.models[0]?.model_id || "";
 }
 
+function initialAiProviderFor(providers: Provider[], providerId: string | null): Provider | undefined {
+  return (
+    providers.find((provider) => provider.id === providerId) ||
+    providers.find((provider) => provider.is_default) ||
+    providers[0]
+  );
+}
+
 export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelProps) {
   const [editor, setEditor] = useState<ChapterEditorState>();
   const [selectedChapterId, setSelectedChapterId] = useState<string>();
@@ -80,8 +88,9 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
         }
         setEditor(nextEditor);
         setSelectedChapterId(nextEditor.chapters[0]?.id || undefined);
-        setAiProviderId(nextEditor.project.provider_id || "");
-        setAiModelId(nextEditor.project.model_id || "");
+        const provider = initialAiProviderFor(providers, nextEditor.project.provider_id);
+        setAiProviderId(provider?.id || "");
+        setAiModelId(nextEditor.project.model_id || defaultModelFor(provider));
       })
       .catch((reason) => {
         if (isCurrent) {
@@ -98,7 +107,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
       isCurrent = false;
       abortRef.current?.abort();
     };
-  }, [projectId]);
+  }, [projectId, providers]);
 
   const selectedChapter = useMemo(
     () => editor?.chapters.find((chapter) => chapter.id === selectedChapterId) || editor?.chapters[0],

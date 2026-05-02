@@ -77,6 +77,8 @@ async def refresh_models(provider_id: str) -> ProviderModelRefreshResponse:
     stored = provider_store.get_provider(provider_id)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
 
     adapter = create_adapter(stored.provider, stored.api_key)
     result = await adapter.test_connection()
@@ -100,6 +102,8 @@ async def test_provider(
     stored = provider_store.get_provider(provider_id)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
 
     adapter = create_adapter(stored.provider, stored.api_key)
     request = payload or ProviderTestRequest()
@@ -123,6 +127,14 @@ def set_default_model(provider_id: str, payload: dict[str, str | None]) -> Provi
     return provider
 
 
+@router.post("/{provider_id}/default-provider", response_model=ProviderRecord)
+def set_default_provider(provider_id: str) -> ProviderRecord:
+    provider = provider_store.set_default_provider(provider_id)
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    return provider
+
+
 @router.post("/project-model", response_model=ProjectModelSelection)
 def set_project_model(payload: ProjectModelSelection) -> ProjectModelSelection:
     selection = provider_store.set_project_model(payload)
@@ -136,6 +148,8 @@ async def chat(provider_id: str, payload: ProviderChatRequest) -> Response:
     stored = provider_store.get_provider(provider_id)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
 
     adapter = create_adapter(stored.provider, stored.api_key)
     if payload.stream and stored.provider.streaming_enabled:

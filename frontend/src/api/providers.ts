@@ -4,6 +4,7 @@ import type {
   ProviderDefaults,
   ProviderModelRefreshResponse,
   ProviderTestResponse,
+  ProviderUpdatePayload,
 } from "../types/providers";
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -19,6 +20,18 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestVoid(url: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...init?.headers },
+    ...init,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => undefined);
+    const detail = body && typeof body.detail === "string" ? body.detail : response.statusText;
+    throw new Error(detail || `Request failed with status ${response.status}`);
+  }
+}
+
 export async function fetchProviderDefaults(): Promise<ProviderDefaults[]> {
   return requestJson<ProviderDefaults[]>("/api/providers/defaults");
 }
@@ -31,6 +44,22 @@ export async function createProvider(payload: ProviderCreatePayload): Promise<Pr
   return requestJson<Provider>("/api/providers", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProvider(
+  providerId: string,
+  payload: ProviderUpdatePayload,
+): Promise<Provider> {
+  return requestJson<Provider>(`/api/providers/${providerId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProvider(providerId: string): Promise<void> {
+  return requestVoid(`/api/providers/${providerId}`, {
+    method: "DELETE",
   });
 }
 
@@ -59,9 +88,29 @@ export async function setProviderDefaultModel(
   });
 }
 
+export async function setDefaultProvider(providerId: string): Promise<Provider> {
+  return requestJson<Provider>(`/api/providers/${providerId}/default-provider`, {
+    method: "POST",
+  });
+}
+
 export function providerScopeLabel(provider?: Pick<Provider, "is_external">): string {
   if (!provider) {
     return "Не выбран";
   }
   return provider.is_external ? "Внешний" : "Локальный";
+}
+
+export function enabledProviders(providers: Provider[]): Provider[] {
+  return providers.filter((provider) => provider.is_enabled);
+}
+
+export function preferredProvider(providers: Provider[]): Provider | undefined {
+  const enabled = enabledProviders(providers);
+  return (
+    enabled.find((provider) => provider.is_default && (provider.default_model_id || provider.models.length > 0)) ||
+    enabled.find((provider) => provider.default_model_id || provider.models.length > 0) ||
+    enabled.find((provider) => provider.is_default) ||
+    enabled[0]
+  );
 }

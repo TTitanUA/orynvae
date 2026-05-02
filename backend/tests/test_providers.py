@@ -52,6 +52,8 @@ def test_create_provider_and_refresh_models(tmp_path, monkeypatch):
     provider = created.json()
     assert provider["base_url"] == "http://localhost:1234/v1"
     assert provider["is_external"] is False
+    assert provider["is_enabled"] is True
+    assert provider["is_default"] is True
 
     tested = client.post(
         f"/api/providers/{provider['id']}/test",
@@ -67,3 +69,33 @@ def test_create_provider_and_refresh_models(tmp_path, monkeypatch):
     listed = client.get("/api/providers")
     assert listed.status_code == 200
     assert listed.json()[0]["models"][0]["display_name"] == "Local Test Model"
+
+
+def test_provider_state_default_and_delete(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+
+    client = TestClient(app)
+    first = client.post("/api/providers", json={"type": "lmstudio", "name": "Local"})
+    second = client.post("/api/providers", json={"type": "openai", "name": "OpenAI"})
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["is_default"] is True
+    assert second.json()["is_default"] is False
+
+    second_id = second.json()["id"]
+    made_default = client.post(f"/api/providers/{second_id}/default-provider")
+    assert made_default.status_code == 200
+    assert made_default.json()["is_default"] is True
+
+    disabled = client.patch(f"/api/providers/{second_id}", json={"is_enabled": False})
+    assert disabled.status_code == 200
+    assert disabled.json()["is_enabled"] is False
+    assert disabled.json()["is_default"] is False
+
+    deleted = client.delete(f"/api/providers/{first.json()['id']}")
+    assert deleted.status_code == 204
+
+    listed = client.get("/api/providers")
+    assert listed.status_code == 200
+    assert [item["name"] for item in listed.json()] == ["OpenAI"]

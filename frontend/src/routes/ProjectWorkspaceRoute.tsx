@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { fetchProjectWorkspace, updateProjectWorkspace } from "../api/projects";
-import { fetchProviders } from "../api/providers";
+import { enabledProviders, fetchProviders } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import { ChapterEditorPanel } from "./ChapterEditorPanel";
 import type { Provider } from "../types/providers";
@@ -89,6 +89,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     () => providers.find((provider) => provider.id === providerId),
     [providers, providerId],
   );
+  const activeProviders = useMemo(() => enabledProviders(providers), [providers]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -313,7 +314,12 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                   onChange={(event) => updateProvider(event.target.value)}
                 >
                   <option value="">No AI provider</option>
-                  {providers.map((provider) => (
+                  {selectedProvider && !selectedProvider.is_enabled && (
+                    <option value={selectedProvider.id}>
+                      {selectedProvider.name} (disabled)
+                    </option>
+                  )}
+                  {activeProviders.map((provider) => (
                     <option key={provider.id} value={provider.id}>
                       {provider.name}
                     </option>
@@ -536,7 +542,9 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "editor" && <ChapterEditorPanel projectId={projectId} providers={providers} />}
+        {activeTab === "editor" && (
+          <ChapterEditorPanel projectId={projectId} providers={activeProviders} />
+        )}
       </div>
     </AppShell>
   );

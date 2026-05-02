@@ -23,6 +23,8 @@ class ProviderCreate(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     is_local: bool | None = None
+    is_enabled: bool = True
+    is_default: bool = False
     streaming_enabled: bool = True
     models_path: str | None = None
     chat_path: str | None = None
@@ -34,6 +36,7 @@ class ProviderUpdate(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     is_local: bool | None = None
+    is_enabled: bool | None = None
     streaming_enabled: bool | None = None
     models_path: str | None = None
     chat_path: str | None = None
@@ -50,6 +53,8 @@ class ProviderRecord(BaseModel):
     has_api_key: bool
     is_local: bool
     is_external: bool
+    is_enabled: bool
+    is_default: bool
     streaming_enabled: bool
     models_path: str | None
     chat_path: str | None
