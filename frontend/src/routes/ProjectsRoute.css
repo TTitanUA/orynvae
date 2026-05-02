@@ -54,6 +54,29 @@
   color: var(--color-text-muted);
 }
 
+.projects-route__message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.projects-route__message a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: 6px;
+  background: #1f6f69;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .projects-route__message.is-error {
   border-color: #d49a9a;
   background: #fff4f4;
@@ -71,6 +94,58 @@
   grid-template-columns: minmax(18rem, 0.85fr) minmax(28rem, 1.4fr) minmax(18rem, 0.9fr);
   gap: 1rem;
   align-items: start;
+}
+
+.projects-route__flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.projects-route__flow-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.125rem 0.625rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.projects-route__flow-step span {
+  display: inline-grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  font-weight: 700;
+}
+
+.projects-route__flow-step strong,
+.projects-route__flow-step small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projects-route__flow-step strong {
+  color: var(--color-text);
+}
+
+.projects-route__flow-step.is-ready {
+  border-color: #a7cdb8;
+  background: #f5fbf7;
+}
+
+.projects-route__flow-step.is-ready span {
+  background: #1f6f69;
+  color: #ffffff;
 }
 
 .project-setup,
@@ -276,9 +351,14 @@
 
 @media (max-width: 760px) {
   .projects-route__header,
-  .projects-route__summary {
+  .projects-route__summary,
+  .projects-route__message {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .projects-route__flow {
+    grid-template-columns: 1fr;
   }
 
   .projects-route__layout,

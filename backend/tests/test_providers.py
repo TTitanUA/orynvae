@@ -22,6 +22,16 @@ class FakeAdapter:
         )
 
 
+class FakeChatAdapter(FakeAdapter):
+    async def complete_chat(self, *, model_id, messages, temperature):
+        return f"complete:{model_id}:{messages[-1].content}:{temperature}"
+
+    async def stream_chat(self, *, model_id, messages, temperature):
+        yield "stream "
+        yield f"{model_id} "
+        yield messages[-1].content
+
+
 def test_provider_defaults_include_external_marker(tmp_path, monkeypatch):
     monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
 
@@ -99,3 +109,52 @@ def test_provider_state_default_and_delete(tmp_path, monkeypatch):
     listed = client.get("/api/providers")
     assert listed.status_code == 200
     assert [item["name"] for item in listed.json()] == ["OpenAI"]
+
+
+def test_provider_chat_streaming_and_disabled_guard(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(providers_api, "create_adapter", lambda provider, api_key: FakeChatAdapter())
+
+    client = TestClient(app)
+    provider = client.post(
+        "/api/providers",
+        json={"type": "lmstudio", "name": "Chat model", "default_model_id": "draft"},
+    ).json()
+
+    streamed = client.post(
+        f"/api/providers/{provider['id']}/chat",
+        json={
+            "model_id": "draft",
+            "messages": [{"role": "user", "content": "continue"}],
+            "stream": True,
+        },
+    )
+
+    assert streamed.status_code == 200
+    assert streamed.text == "stream draft continue"
+
+    completed = client.post(
+        f"/api/providers/{provider['id']}/chat",
+        json={
+            "model_id": "draft",
+            "messages": [{"role": "user", "content": "rewrite"}],
+            "temperature": 0.4,
+            "stream": False,
+        },
+    )
+
+    assert completed.status_code == 200
+    assert completed.text == "complete:draft:rewrite:0.4"
+
+    disabled = client.patch(f"/api/providers/{provider['id']}", json={"is_enabled": False})
+    assert disabled.status_code == 200
+
+    blocked = client.post(
+        f"/api/providers/{provider['id']}/chat",
+        json={
+            "model_id": "draft",
+            "messages": [{"role": "user", "content": "continue"}],
+        },
+    )
+
+    assert blocked.status_code == 409

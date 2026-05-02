@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
+  Check,
   CirclePlus,
   ClipboardPenLine,
   Lightbulb,
@@ -121,6 +122,15 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
     () => providers.find((provider) => provider.id === aiProviderId),
     [aiProviderId, providers],
   );
+  const activeAiProviders = useMemo(() => {
+    const enabled = providers.filter((provider) => provider.is_enabled);
+    return selectedProvider && !selectedProvider.is_enabled
+      ? [selectedProvider, ...enabled]
+      : enabled;
+  }, [providers, selectedProvider]);
+  const aiNeedsModel = Boolean(aiProviderId && !aiModelId);
+  const aiProviderUnavailable = Boolean(selectedProvider && !selectedProvider.is_enabled);
+  const canRunAi = Boolean(selectedChapter && !aiRunning && !aiNeedsModel && !aiProviderUnavailable);
   const draftText = selectedScene ? selectedScene.body : selectedChapter?.body || "";
 
   function replaceChapter(chapterId: string | null | undefined, patch: Partial<ChapterEditor>) {
@@ -210,6 +220,19 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
     replaceChapter(selectedChapter?.id, { body: value });
   }
 
+  function applySuggestionToDraft() {
+    const cleanSuggestion = suggestion.trim();
+    if (!cleanSuggestion || !selectedChapter) {
+      return;
+    }
+    if (action === "continue") {
+      updateDraft([draftText.trimEnd(), cleanSuggestion].filter(Boolean).join("\n\n"));
+    } else if (action === "rewrite") {
+      updateDraft(cleanSuggestion);
+    }
+    setNotice("AI output applied to the draft.");
+  }
+
   async function saveEditor() {
     if (!editor) {
       return;
@@ -229,7 +252,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
   }
 
   async function runAi(nextAction: ChapterAiAction) {
-    if (!editor || !selectedChapter) {
+    if (!editor || !selectedChapter || aiNeedsModel || aiProviderUnavailable) {
       return;
     }
     abortRef.current?.abort();
@@ -328,6 +351,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
                 <label>
                   Chapter title
                   <input
+                    name="chapter-editor-title"
                     value={selectedChapter.title}
                     onChange={(event) => replaceChapter(selectedChapter.id, { title: event.target.value })}
                   />
@@ -335,6 +359,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
                 <label>
                   Status
                   <select
+                    name="chapter-editor-status"
                     value={selectedChapter.status}
                     onChange={(event) => replaceChapter(selectedChapter.id, { status: event.target.value })}
                   >
@@ -357,6 +382,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
               <label>
                 Chapter summary
                 <textarea
+                  name="chapter-editor-summary"
                   rows={3}
                   value={text(selectedChapter.summary)}
                   onChange={(event) => replaceChapter(selectedChapter.id, { summary: event.target.value })}
@@ -391,6 +417,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
                   <label>
                     Scene title
                     <input
+                      name="chapter-editor-scene-title"
                       value={text(selectedScene.title)}
                       onChange={(event) => replaceScene(selectedScene.id, { title: event.target.value })}
                     />
@@ -398,6 +425,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
                   <label>
                     Scene summary
                     <input
+                      name="chapter-editor-scene-summary"
                       value={text(selectedScene.summary)}
                       onChange={(event) => replaceScene(selectedScene.id, { summary: event.target.value })}
                     />
@@ -416,6 +444,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
               <label className="chapter-editor__prose">
                 Draft
                 <textarea
+                  name="chapter-editor-draft"
                   rows={18}
                   value={draftText}
                   onChange={(event) => updateDraft(event.target.value)}
@@ -444,6 +473,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           <label>
             Provider
             <select
+              name="chapter-ai-provider"
               value={aiProviderId}
               onChange={(event) => {
                 const provider = providers.find((item) => item.id === event.target.value);
@@ -452,16 +482,30 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
               }}
             >
               <option value="">Fallback editor</option>
-              {providers.map((provider) => (
+              {activeAiProviders.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name}
+                  {!provider.is_enabled ? " (disabled)" : ""}
                 </option>
               ))}
             </select>
           </label>
+          {aiNeedsModel && (
+            <p className="chapter-editor__hint">Select a model or use the fallback editor.</p>
+          )}
+          {aiProviderUnavailable && (
+            <p className="chapter-editor__hint">This provider is disabled. Pick another provider or use fallback.</p>
+          )}
+          {selectedProvider && (
+            <p className="chapter-editor__hint">
+              {selectedProvider.streaming_enabled ? "Streaming enabled" : "Single response mode"}
+              {selectedProvider.last_checked_at ? " - checked" : " - not checked"}
+            </p>
+          )}
           <label>
             Model
             <select
+              name="chapter-ai-model"
               disabled={!selectedProvider}
               value={aiModelId}
               onChange={(event) => setAiModelId(event.target.value)}
@@ -484,15 +528,30 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           </label>
           <label>
             Persona
-            <textarea rows={3} value={persona} onChange={(event) => setPersona(event.target.value)} />
+            <textarea
+              name="chapter-ai-persona"
+              rows={3}
+              value={persona}
+              onChange={(event) => setPersona(event.target.value)}
+            />
           </label>
           <label>
             Selection / passage
-            <textarea rows={4} value={selection} onChange={(event) => setSelection(event.target.value)} />
+            <textarea
+              name="chapter-ai-selection"
+              rows={4}
+              value={selection}
+              onChange={(event) => setSelection(event.target.value)}
+            />
           </label>
           <label>
             Instruction
-            <textarea rows={3} value={instructions} onChange={(event) => setInstructions(event.target.value)} />
+            <textarea
+              name="chapter-ai-instructions"
+              rows={3}
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+            />
           </label>
           <div className="chapter-editor__ai-actions">
             {aiActions.map((item) => {
@@ -500,7 +559,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
               return (
                 <button
                   aria-pressed={action === item.id}
-                  disabled={aiRunning || !selectedChapter}
+                  disabled={!canRunAi}
                   key={item.id}
                   onClick={() => void runAi(item.id)}
                   title={item.label}
@@ -514,8 +573,19 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           </div>
           <label className="chapter-editor__suggestion">
             AI output
-            <textarea rows={12} readOnly value={suggestion} />
+            <textarea name="chapter-ai-output" rows={12} readOnly value={suggestion} />
           </label>
+          {(action === "continue" || action === "rewrite") && (
+            <button
+              type="button"
+              disabled={!suggestion.trim() || aiRunning || !selectedChapter}
+              onClick={applySuggestionToDraft}
+              title="Apply output to draft"
+            >
+              <Check size={16} aria-hidden="true" />
+              Apply output
+            </button>
+          )}
         </aside>
       </div>
     </section>

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   FileText,
   FolderKanban,
+  PencilLine,
   Save,
   Sparkles,
   Wand2,
@@ -100,11 +101,15 @@ export function ProjectsRoute() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [createdProjectId, setCreatedProjectId] = useState<string>();
 
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === selectedProviderId),
     [providers, selectedProviderId],
   );
+  const activeProviderCount = useMemo(() => enabledProviders(providers).length, [providers]);
+  const providerReady = !selectedProviderId || Boolean(selectedModelId);
+  const latestProject = projects[0];
 
   useEffect(() => {
     let isCurrent = true;
@@ -149,6 +154,7 @@ export function ProjectsRoute() {
     setAnalyzing(true);
     setError(undefined);
     setNotice(undefined);
+    setCreatedProjectId(undefined);
     setWarnings([]);
     try {
       const analysis = await analyzeProjectSetup({
@@ -170,6 +176,7 @@ export function ProjectsRoute() {
     setSaving(true);
     setError(undefined);
     setNotice(undefined);
+    setCreatedProjectId(undefined);
     const hasProviderModel = Boolean(selectedProviderId && selectedModelId);
     try {
       const project = await createProjectFromSetup({
@@ -191,6 +198,7 @@ export function ProjectsRoute() {
         model_id: hasProviderModel ? selectedModelId : undefined,
       });
       setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)]);
+      setCreatedProjectId(project.id);
       setNotice(`${project.name}: проект создан. Откройте рабочее пространство из списка проектов.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось создать проект");
@@ -225,9 +233,38 @@ export function ProjectsRoute() {
 
         {(error || notice) && (
           <div className={`projects-route__message ${error ? "is-error" : "is-ready"}`}>
-            {error || notice}
+            <span>{error || notice}</span>
+            {createdProjectId && !error && (
+              <a href={`/projects/${encodeURIComponent(createdProjectId)}/workspace`}>
+                <PencilLine size={16} aria-hidden="true" />
+                Open workspace
+              </a>
+            )}
           </div>
         )}
+
+        <section className="projects-route__flow" aria-label="MVP author flow">
+          <div className="projects-route__flow-step is-ready">
+            <span>1</span>
+            <strong>Provider</strong>
+            <small>{activeProviderCount} enabled</small>
+          </div>
+          <div className={`projects-route__flow-step ${draft.name ? "is-ready" : ""}`}>
+            <span>2</span>
+            <strong>Setup</strong>
+            <small>{draft.name || "Idea analysis"}</small>
+          </div>
+          <div className={`projects-route__flow-step ${latestProject ? "is-ready" : ""}`}>
+            <span>3</span>
+            <strong>Workspace</strong>
+            <small>{latestProject?.name || "Create project"}</small>
+          </div>
+          <div className={`projects-route__flow-step ${latestProject ? "is-ready" : ""}`}>
+            <span>4</span>
+            <strong>Editor</strong>
+            <small>Draft with AI</small>
+          </div>
+        </section>
 
         <div className="projects-route__layout">
           <form className="project-setup" onSubmit={runAnalysis}>
@@ -298,9 +335,15 @@ export function ProjectsRoute() {
               </p>
             )}
 
+            {!providerReady && (
+              <p className="project-setup__external">
+                Select a model before using this provider for setup. Leave provider empty to use fallback setup.
+              </p>
+            )}
+
             <button
               className="projects-route__button is-primary"
-              disabled={analyzing || !ideaText.trim()}
+              disabled={analyzing || !ideaText.trim() || !providerReady}
             >
               <Sparkles size={16} aria-hidden="true" />
               {analyzing ? "Анализ" : "Разобрать идею"}
