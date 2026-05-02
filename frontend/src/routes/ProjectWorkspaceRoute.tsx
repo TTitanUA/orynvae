@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   CirclePlus,
   Map,
+  PenLine,
   Save,
   Trash2,
   UsersRound,
@@ -14,6 +15,7 @@ import {
 import { fetchProjectWorkspace, updateProjectWorkspace } from "../api/projects";
 import { fetchProviders } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
+import { ChapterEditorPanel } from "./ChapterEditorPanel";
 import type { Provider } from "../types/providers";
 import type {
   ChapterPlan,
@@ -27,7 +29,7 @@ import type {
 } from "../types/projects";
 import "./ProjectWorkspaceRoute.css";
 
-type WorkspaceTab = "overview" | "ideas" | "world" | "characters" | "plot";
+type WorkspaceTab = "overview" | "ideas" | "world" | "characters" | "plot" | "editor";
 
 const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof BookMarked }> = [
   { id: "overview", label: "Overview", icon: BookMarked },
@@ -35,6 +37,7 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof BookMarked }> 
   { id: "world", label: "World Bible", icon: Map },
   { id: "characters", label: "Characters", icon: UsersRound },
   { id: "plot", label: "Plot Board", icon: Boxes },
+  { id: "editor", label: "Editor", icon: PenLine },
 ];
 
 function splitLines(value: string): string[] {
@@ -532,6 +535,8 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
             />
           </section>
         )}
+
+        {activeTab === "editor" && <ChapterEditorPanel projectId={projectId} providers={providers} />}
       </div>
     </AppShell>
   );

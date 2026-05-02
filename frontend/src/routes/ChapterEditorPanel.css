@@ -1,0 +1,225 @@
+.chapter-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.chapter-editor__toolbar,
+.chapter-editor__actions,
+.chapter-editor__meta,
+.chapter-editor__scene-row,
+.chapter-editor__ai-head,
+.chapter-editor__ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chapter-editor__toolbar {
+  justify-content: space-between;
+}
+
+.chapter-editor__toolbar h2,
+.chapter-editor__toolbar p,
+.chapter-editor__ai h3 {
+  margin: 0;
+}
+
+.chapter-editor__toolbar h2 {
+  font-size: 1.125rem;
+}
+
+.chapter-editor__toolbar p {
+  color: var(--color-text-muted);
+}
+
+.chapter-editor button,
+.chapter-editor select,
+.chapter-editor input,
+.chapter-editor textarea {
+  font: inherit;
+}
+
+.chapter-editor button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chapter-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.chapter-editor__actions button:last-child {
+  border-color: #1f6f69;
+  background: #1f6f69;
+  color: #ffffff;
+}
+
+.chapter-editor__message,
+.chapter-editor__state {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+}
+
+.chapter-editor__message.is-error,
+.chapter-editor__state.is-error {
+  border-color: #d49a9a;
+  background: #fff4f4;
+  color: #8b3030;
+}
+
+.chapter-editor__message.is-ready {
+  border-color: #a7cdb8;
+  background: #f0f8f3;
+  color: #255a3b;
+}
+
+.chapter-editor__layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.chapter-editor__chapter-list,
+.chapter-editor__draft,
+.chapter-editor__ai {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.chapter-editor__chapter-list button {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+  min-height: 4rem;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.chapter-editor__chapter-list button[aria-current="true"],
+.chapter-editor__scene-row button[aria-current="true"],
+.chapter-editor__ai-actions button[aria-pressed="true"] {
+  border-color: #1f6f69;
+  background: #eaf4f2;
+}
+
+.chapter-editor__chapter-list span {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.chapter-editor label {
+  display: grid;
+  gap: 0.375rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chapter-editor input,
+.chapter-editor select,
+.chapter-editor textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 400;
+}
+
+.chapter-editor input,
+.chapter-editor select {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+}
+
+.chapter-editor textarea {
+  resize: vertical;
+  padding: 0.75rem;
+  line-height: 1.5;
+}
+
+.chapter-editor__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 14rem) 2.5rem;
+}
+
+.chapter-editor__meta button,
+.chapter-editor__scene-row button:last-child,
+.chapter-editor__ai-head button {
+  width: 2.5rem;
+  padding: 0;
+}
+
+.chapter-editor__scene-row {
+  flex-wrap: wrap;
+}
+
+.chapter-editor__prose textarea {
+  min-height: 32rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+}
+
+.chapter-editor__ai {
+  position: sticky;
+  top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.chapter-editor__ai-head {
+  justify-content: space-between;
+}
+
+.chapter-editor__ai-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chapter-editor__suggestion textarea {
+  background: var(--color-surface-subtle);
+}
+
+@media (max-width: 1120px) {
+  .chapter-editor__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-editor__ai {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .chapter-editor__toolbar,
+  .chapter-editor__actions,
+  .chapter-editor__ai-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chapter-editor__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-editor__meta button {
+    width: 100%;
+  }
+}

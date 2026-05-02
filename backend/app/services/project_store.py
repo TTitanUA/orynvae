@@ -6,6 +6,9 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.projects import (
+    ChapterEditorRecord,
+    ChapterEditorRecordSet,
+    ChapterEditorUpdate,
     ChapterPlanRecord,
     CharacterWorkspaceRecord,
     IdeaLabRecord,
@@ -122,6 +125,41 @@ def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord | None:
             characters=_get_characters(connection, project_id),
             plot_board=_get_plot_board(connection, project_id),
         )
+
+
+def get_chapter_editor(project_id: str) -> ChapterEditorRecordSet | None:
+    project = get_project(project_id)
+    if project is None:
+        return None
+
+    with _connection() as connection:
+        return ChapterEditorRecordSet(
+            project=project,
+            settings=_workspace_settings(project.settings),
+            characters=_get_characters(connection, project_id),
+            arcs=_get_plot_board(connection, project_id).arcs,
+            chapters=_get_chapter_editor_chapters(connection, project_id),
+            saved_at=project.updated_at,
+        )
+
+
+def update_chapter_editor(
+    project_id: str,
+    payload: ChapterEditorUpdate,
+) -> ChapterEditorRecordSet | None:
+    project = get_project(project_id)
+    if project is None:
+        return None
+
+    with _connection() as connection:
+        _replace_editor_chapters(connection, project_id, payload.chapters)
+        connection.execute(
+            "UPDATE projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (project_id,),
+        )
+        connection.commit()
+
+    return get_chapter_editor(project_id)
 
 
 def create_project(payload: ProjectCreate) -> ProjectRecord:
@@ -501,6 +539,59 @@ def _get_plot_board(connection: sqlite3.Connection, project_id: str) -> PlotBoar
     )
 
 
+def _get_chapter_editor_chapters(
+    connection: sqlite3.Connection,
+    project_id: str,
+) -> list[ChapterEditorRecord]:
+    chapter_rows = connection.execute(
+        """
+        SELECT id, title, summary, body, status, position, created_at, updated_at
+        FROM chapters
+        WHERE project_id = ?
+        ORDER BY position ASC, updated_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    scene_rows = connection.execute(
+        """
+        SELECT id, chapter_id, title, summary, body, position, created_at, updated_at
+        FROM scenes
+        WHERE project_id = ?
+        ORDER BY chapter_id ASC, position ASC, updated_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    scenes_by_chapter: dict[str, list[dict[str, object]]] = {}
+    for row in scene_rows:
+        scenes_by_chapter.setdefault(row["chapter_id"], []).append(
+            {
+                "id": row["id"],
+                "chapter_id": row["chapter_id"],
+                "title": row["title"],
+                "summary": row["summary"],
+                "body": row["body"],
+                "position": row["position"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
+
+    return [
+        ChapterEditorRecord(
+            id=row["id"],
+            title=row["title"],
+            summary=row["summary"],
+            body=row["body"],
+            status=row["status"],
+            position=row["position"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            scenes=scenes_by_chapter.get(row["id"], []),
+        )
+        for row in chapter_rows
+    ]
+
+
 def _upsert_workspace_settings(
     connection: sqlite3.Connection,
     project_id: str,
@@ -681,6 +772,72 @@ def _replace_characters(
         )
 
 
+def _snapshot_chapter_drafts(
+    connection: sqlite3.Connection,
+    project_id: str,
+) -> tuple[dict[str, str], dict[str, list[sqlite3.Row]]]:
+    chapter_rows = connection.execute(
+        "SELECT id, body FROM chapters WHERE project_id = ?",
+        (project_id,),
+    ).fetchall()
+    scene_rows = connection.execute(
+        """
+        SELECT id, chapter_id, title, summary, body, position
+        FROM scenes
+        WHERE project_id = ?
+        ORDER BY position ASC, updated_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    scenes_by_chapter: dict[str, list[sqlite3.Row]] = {}
+    for row in scene_rows:
+        scenes_by_chapter.setdefault(row["chapter_id"], []).append(row)
+    return ({row["id"]: row["body"] for row in chapter_rows}, scenes_by_chapter)
+
+
+def _replace_editor_chapters(
+    connection: sqlite3.Connection,
+    project_id: str,
+    chapters: list[ChapterEditorRecord],
+) -> None:
+    connection.execute("DELETE FROM chapters WHERE project_id = ?", (project_id,))
+    for index, chapter in enumerate(chapters):
+        chapter_id = chapter.id or str(uuid4())
+        connection.execute(
+            """
+            INSERT INTO chapters (id, project_id, title, summary, body, status, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                chapter_id,
+                project_id,
+                chapter.title.strip(),
+                _clean(chapter.summary),
+                chapter.body,
+                _clean(chapter.status) or "draft",
+                chapter.position if chapter.position >= 0 else index,
+            ),
+        )
+        for scene_index, scene in enumerate(chapter.scenes):
+            connection.execute(
+                """
+                INSERT INTO scenes (
+                  id, project_id, chapter_id, title, summary, body, position
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    scene.id or str(uuid4()),
+                    project_id,
+                    chapter_id,
+                    _clean(scene.title),
+                    _clean(scene.summary),
+                    scene.body,
+                    scene.position if scene.position >= 0 else scene_index,
+                ),
+            )
+
+
 def _replace_plot_board(
     connection: sqlite3.Connection,
     project_id: str,
@@ -705,22 +862,43 @@ def _replace_plot_board(
             ),
         )
 
+    chapter_bodies, scenes_by_chapter = _snapshot_chapter_drafts(connection, project_id)
     connection.execute("DELETE FROM chapters WHERE project_id = ?", (project_id,))
     for index, chapter in enumerate(plot_board.chapters):
+        chapter_id = chapter.id or str(uuid4())
         connection.execute(
             """
-            INSERT INTO chapters (id, project_id, title, summary, status, position)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO chapters (id, project_id, title, summary, body, status, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                chapter_id,
                 project_id,
                 chapter.title.strip(),
                 _clean(chapter.summary),
+                chapter_bodies.get(chapter_id, ""),
                 _clean(chapter.status) or "draft",
                 chapter.position if chapter.position >= 0 else index,
             ),
         )
+        for scene in scenes_by_chapter.get(chapter_id, []):
+            connection.execute(
+                """
+                INSERT INTO scenes (
+                  id, project_id, chapter_id, title, summary, body, position
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    scene["id"],
+                    project_id,
+                    chapter_id,
+                    scene["title"],
+                    scene["summary"],
+                    scene["body"],
+                    scene["position"],
+                ),
+            )
 
 
 def _string_setting(settings: dict[str, Any], key: str) -> str | None:
