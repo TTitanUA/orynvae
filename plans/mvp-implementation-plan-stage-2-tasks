@@ -1,0 +1,12 @@
+- [x] Inspect existing backend, frontend, data, and scripts structure.
+- [x] Add backend provider data model, persistence, and API routes.
+- [x] Implement provider adapters for LM Studio, Ollama, OpenAI, OpenRouter, and custom OpenAI-compatible endpoints.
+- [x] Add connection testing, model listing, and basic streaming support.
+- [x] Add frontend provider settings and model selection flow with external-provider labeling.
+- [x] Wire frontend API client/types and visible states for loading, errors, and test responses.
+- [x] Run backend and frontend automated verification.
+- [x] Run the local dev launcher and manually verify the provider settings flow in Chrome DevTools.
+
+Note: `scripts/dev.ps1` was attempted for browser verification, but `uv run db-init`
+could not replace the locked `backend/.venv/Scripts/dev.exe`. Manual QA used the
+same project runtimes directly on backend port 9011 and frontend port 9012.

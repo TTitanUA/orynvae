@@ -20,8 +20,8 @@ const foundations = [
   },
   {
     icon: Waypoints,
-    title: "Готовность к AI",
-    text: "Следующий срез подключит provider adapters.",
+    title: "AI-провайдеры",
+    text: "Настройки моделей доступны в рабочем разделе.",
   },
   {
     icon: BookOpen,
@@ -56,16 +56,16 @@ export function HomeRoute() {
   }, []);
 
   return (
-    <AppShell>
+    <AppShell currentPath="/">
       <div className="home-route">
         <header className="home-route__header">
           <div>
-            <p className="home-route__eyebrow">MVP · этап 1</p>
+            <p className="home-route__eyebrow">MVP · этап 2</p>
             <h1>Локальный каркас Orynvae</h1>
           </div>
           <p>
-            Первый срез собирает основу: backend, frontend, SQLite-папку и общий
-            запускатель. Дальше на эту основу ляжет настройка AI-провайдеров.
+            Основа приложения готова к настройке моделей: локальные и внешние
+            провайдеры подключаются через единый backend-слой.
           </p>
         </header>
 
@@ -84,4 +84,3 @@ export function HomeRoute() {
     </AppShell>
   );
 }
-

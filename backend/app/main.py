@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
-from app.core.config import APP_NAME, APP_VERSION, FRONTEND_ORIGIN
+from app.core.config import APP_VERSION, FRONTEND_ORIGIN
 from app.storage.paths import ensure_data_dirs
 
 
@@ -34,4 +34,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
