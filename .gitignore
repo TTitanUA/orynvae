@@ -10,6 +10,7 @@ data/*
 __pycache__/
 *.py[cod]
 .pytest_cache/
+backend/pytest-*/
 .ruff_cache/
 .venv/
 backend/.venv/

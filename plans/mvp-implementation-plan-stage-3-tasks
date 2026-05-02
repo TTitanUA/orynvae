@@ -1,0 +1,6 @@
+- [x] Inspect existing backend, frontend, and persistence patterns for project data.
+- [x] Add or extend backend project creation and AI setup data models, storage, and API routes.
+- [x] Add frontend project list/create flow and AI Project Setup form.
+- [x] Add AI analysis action that uses the configured provider when available and degrades clearly when unavailable.
+- [x] Verify backend tests, frontend checks, and build.
+- [x] Run local dev environment and manually test the Stage 3 browser flow with Chrome DevTools.
