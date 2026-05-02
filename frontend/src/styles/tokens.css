@@ -1,12 +1,11 @@
 :root {
   color-scheme: light;
-  --color-page: #f4f1ea;
-  --color-sidebar: #ebe7dd;
-  --color-surface: #fffdf8;
-  --color-surface-subtle: #f8f5ee;
-  --color-border: #d8d1c4;
-  --color-text: #23221f;
-  --color-text-muted: #6e675c;
-  --color-accent: #326f6b;
+  --color-page: #f5f7f5;
+  --color-sidebar: #e8eeeb;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1f5f3;
+  --color-border: #cbd8d3;
+  --color-text: #1d2422;
+  --color-text-muted: #60706a;
+  --color-accent: #1f6f69;
 }
-
