@@ -3,6 +3,8 @@ import type {
   ProjectSetupAnalysis,
   ProjectSetupAnalysisPayload,
   ProjectSetupCreatePayload,
+  ProjectWorkspace,
+  ProjectWorkspacePayload,
 } from "../types/projects";
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -40,10 +42,23 @@ export async function createProjectFromSetup(
   });
 }
 
+export async function fetchProjectWorkspace(projectId: string): Promise<ProjectWorkspace> {
+  return requestJson<ProjectWorkspace>(`/api/projects/${projectId}/workspace`);
+}
+
+export async function updateProjectWorkspace(
+  projectId: string,
+  payload: ProjectWorkspacePayload,
+): Promise<ProjectWorkspace> {
+  return requestJson<ProjectWorkspace>(`/api/projects/${projectId}/workspace`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function projectStatusLabel(project: Project): string {
   if (project.archived_at) {
     return "Архив";
   }
   return project.status === "active" ? "Активен" : project.status;
 }
-

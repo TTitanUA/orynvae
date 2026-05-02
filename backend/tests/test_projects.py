@@ -93,3 +93,108 @@ def test_project_setup_ai_analysis_uses_selected_provider(tmp_path, monkeypatch)
     assert body["themes"] == ["memory", "identity"]
     assert body["warnings"] == []
 
+
+def test_project_workspace_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+
+    project = client.post(
+        "/api/projects/setup",
+        json={
+            "name": "Archive City",
+            "idea_text": "A cartographer maps dreams.",
+            "description": "Dream maps for a city.",
+            "synopsis": "A city searches for the sea it forgot.",
+            "genre": "science fantasy",
+            "tone": "quiet wonder",
+            "setting": "floating archive",
+            "format": "novella",
+            "central_conflict": "truth versus comfort",
+            "themes": ["memory"],
+            "directions": ["open in the archive"],
+            "selected_direction": "open in the archive",
+        },
+    ).json()
+
+    loaded = client.get(f"/api/projects/{project['id']}/workspace")
+
+    assert loaded.status_code == 200
+    workspace = loaded.json()
+    assert workspace["project"]["name"] == "Archive City"
+    assert workspace["idea_lab"]["directions"] == ["open in the archive"]
+
+    saved = client.put(
+        f"/api/projects/{project['id']}/workspace",
+        json={
+            "name": "Archive City Revised",
+            "description": "A sharper project brief.",
+            "synopsis": "The mapmaker discovers who erased the ocean.",
+            "settings": {
+                "genre": "fantasy mystery",
+                "tone": "luminous",
+                "setting": "library archipelago",
+                "format": "short novel",
+                "central_conflict": "memory versus power",
+                "themes": ["memory", "agency"],
+                "target_length": "70k",
+                "point_of_view": "close third",
+            },
+            "idea_lab": {
+                "source_text": "A mapmaker and a lost sea.",
+                "expanded_synopsis": "The city begins to dream in tides.",
+                "selected_direction": "start with a forbidden map",
+                "directions": ["start with a forbidden map"],
+                "themes": ["memory", "agency"],
+                "motives": ["recover the erased archive"],
+                "conflicts": ["public history versus private grief"],
+            },
+            "world_bible": {
+                "rules": [
+                    {
+                        "title": "Dream maps are legal records",
+                        "content": "A map can rewrite civic memory.",
+                        "canon_status": "canon",
+                    }
+                ],
+                "locations": [{"title": "North Stack", "content": "A tower of tidal shelves."}],
+                "factions": [{"title": "The Index", "content": "Archivists who police memory."}],
+            },
+            "characters": [
+                {
+                    "name": "Mira",
+                    "role": "cartographer",
+                    "biography": "Raised among sealed indexes.",
+                    "motivation": "Find the first map.",
+                    "goal": "Restore the sea.",
+                    "fear": "Becoming the city's censor.",
+                    "internal_conflict": "Truth may hurt the people she protects.",
+                }
+            ],
+            "plot_board": {
+                "arcs": [
+                    {
+                        "title": "Memory arc",
+                        "description": "From obedient mapper to witness.",
+                        "arc_type": "main",
+                        "position": 0,
+                    }
+                ],
+                "chapters": [
+                    {
+                        "title": "The Saltless Harbor",
+                        "summary": "Mira finds a map that smells like rain.",
+                        "status": "planned",
+                        "position": 0,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["project"]["name"] == "Archive City Revised"
+    assert body["settings"]["themes"] == ["memory", "agency"]
+    assert body["world_bible"]["rules"][0]["title"] == "Dream maps are legal records"
+    assert body["characters"][0]["name"] == "Mira"
+    assert body["plot_board"]["chapters"][0]["status"] == "planned"

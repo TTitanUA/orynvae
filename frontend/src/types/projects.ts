@@ -63,3 +63,85 @@ export type ProjectSetupCreatePayload = {
   model_id?: string;
 };
 
+export type WorkspaceSettings = {
+  genre: string | null;
+  tone: string | null;
+  setting: string | null;
+  format: string | null;
+  central_conflict: string | null;
+  themes: string[];
+  target_length: string | null;
+  point_of_view: string | null;
+};
+
+export type IdeaLab = {
+  source_text: string | null;
+  expanded_synopsis: string | null;
+  selected_direction: string | null;
+  directions: string[];
+  themes: string[];
+  motives: string[];
+  conflicts: string[];
+};
+
+export type WorldEntry = {
+  id?: string | null;
+  title: string;
+  content?: string | null;
+  canon_status?: string;
+};
+
+export type WorldBible = {
+  rules: WorldEntry[];
+  locations: WorldEntry[];
+  factions: WorldEntry[];
+};
+
+export type CharacterWorkspace = {
+  id?: string | null;
+  name: string;
+  role?: string | null;
+  biography?: string | null;
+  motivation?: string | null;
+  goal?: string | null;
+  fear?: string | null;
+  internal_conflict?: string | null;
+};
+
+export type PlotArcWorkspace = {
+  id?: string | null;
+  title: string;
+  description?: string | null;
+  arc_type: string;
+  position: number;
+};
+
+export type ChapterPlan = {
+  id?: string | null;
+  title: string;
+  summary?: string | null;
+  status: string;
+  position: number;
+};
+
+export type PlotBoard = {
+  arcs: PlotArcWorkspace[];
+  chapters: ChapterPlan[];
+};
+
+export type ProjectWorkspace = {
+  project: Project;
+  settings: WorkspaceSettings;
+  idea_lab: IdeaLab;
+  world_bible: WorldBible;
+  characters: CharacterWorkspace[];
+  plot_board: PlotBoard;
+};
+
+export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
+  name: string;
+  description?: string | null;
+  synopsis?: string | null;
+  provider_id?: string | null;
+  model_id?: string | null;
+};

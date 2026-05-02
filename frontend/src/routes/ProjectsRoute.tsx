@@ -193,7 +193,7 @@ export function ProjectsRoute() {
         model_id: hasProviderModel ? selectedModelId : undefined,
       });
       setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)]);
-      setNotice(`${project.name}: проект создан`);
+      setNotice(`${project.name}: проект создан. Откройте рабочее пространство из списка проектов.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось создать проект");
     } finally {
@@ -493,7 +493,11 @@ export function ProjectsRoute() {
               <article className="project-card" key={project.id}>
                 <div className="project-card__header">
                   <div>
-                    <h3>{project.name}</h3>
+                    <h3>
+                      <a href={`/projects/${encodeURIComponent(project.id)}/workspace`}>
+                        {project.name}
+                      </a>
+                    </h3>
                     <p>{project.description || project.synopsis || "Без описания"}</p>
                   </div>
                   <span>{projectStatusLabel(project)}</span>

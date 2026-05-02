@@ -12,6 +12,8 @@ from app.models.projects import (
     ProjectSetupAnalysisRequest,
     ProjectSetupCreate,
     ProjectUpdate,
+    ProjectWorkspaceRecord,
+    ProjectWorkspaceUpdate,
 )
 from app.models.providers import ChatMessage
 from app.providers.adapters import create_adapter
@@ -46,6 +48,26 @@ def update_project(project_id: str, payload: ProjectUpdate) -> ProjectRecord:
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
+
+
+@router.get("/{project_id}/workspace", response_model=ProjectWorkspaceRecord)
+def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord:
+    workspace = project_store.get_project_workspace(project_id)
+    if workspace is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return workspace
+
+
+@router.put("/{project_id}/workspace", response_model=ProjectWorkspaceRecord)
+def update_project_workspace(
+    project_id: str,
+    payload: ProjectWorkspaceUpdate,
+) -> ProjectWorkspaceRecord:
+    _validate_provider_selection(payload.provider_id, payload.model_id)
+    workspace = project_store.update_project_workspace(project_id, payload)
+    if workspace is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return workspace
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -195,4 +217,3 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item.strip() for item in value if isinstance(item, str) and item.strip()]
-

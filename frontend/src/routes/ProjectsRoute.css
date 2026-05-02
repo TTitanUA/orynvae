@@ -232,6 +232,15 @@
   font-size: 1rem;
 }
 
+.project-card h3 a {
+  color: inherit;
+  text-decoration-color: transparent;
+}
+
+.project-card h3 a:hover {
+  text-decoration-color: currentColor;
+}
+
 .project-card__header p,
 .project-card__synopsis {
   color: var(--color-text-muted);
@@ -278,4 +287,3 @@
     grid-template-columns: 1fr;
   }
 }
-

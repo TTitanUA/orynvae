@@ -1,0 +1,9 @@
+- [x] Inspect existing backend/frontend project architecture for workspace patterns.
+- [x] Add or extend project workspace data/API support for synopsis, notes, provider, and period fields.
+- [x] Add Idea Lab support for ideas, themes, motives, and conflicts.
+- [x] Add World Bible support for world, rules, locations, and factions.
+- [x] Add Characters support for character profile cards and relationships.
+- [x] Add Plot Board support for arcs, turn points, and chapter planning.
+- [x] Implement the Project Workspace UI and connect it to APIs/state.
+- [x] Run automated backend/frontend verification.
+- [x] Run the local dev launcher and manually verify the workspace flow in Chrome DevTools.
