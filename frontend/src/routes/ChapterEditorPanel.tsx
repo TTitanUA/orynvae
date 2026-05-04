@@ -17,6 +17,7 @@ import {
   requestChapterAi,
   updateChapterEditor,
 } from "../api/projects";
+import { allowedModels, defaultModelFor } from "../api/providers";
 import type { Provider } from "../types/providers";
 import type {
   ChapterAiAction,
@@ -50,14 +51,11 @@ function wordCount(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
 }
 
-function defaultModelFor(provider?: Provider): string {
-  return provider?.default_model_id || provider?.models[0]?.model_id || "";
-}
-
 function initialAiProviderFor(providers: Provider[], providerId: string | null): Provider | undefined {
   return (
     providers.find((provider) => provider.id === providerId) ||
-    providers.find((provider) => provider.is_default) ||
+    providers.find((provider) => provider.is_default && allowedModels(provider).length > 0) ||
+    providers.find((provider) => allowedModels(provider).length > 0) ||
     providers[0]
   );
 }
@@ -122,15 +120,28 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
     () => providers.find((provider) => provider.id === aiProviderId),
     [aiProviderId, providers],
   );
+  const selectedAllowedModels = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
   const activeAiProviders = useMemo(() => {
     const enabled = providers.filter((provider) => provider.is_enabled);
     return selectedProvider && !selectedProvider.is_enabled
       ? [selectedProvider, ...enabled]
       : enabled;
   }, [providers, selectedProvider]);
+  const hasLegacyAiModel = Boolean(
+    aiModelId &&
+      selectedProvider &&
+      !selectedAllowedModels.some((model) => model.model_id === aiModelId),
+  );
   const aiNeedsModel = Boolean(aiProviderId && !aiModelId);
   const aiProviderUnavailable = Boolean(selectedProvider && !selectedProvider.is_enabled);
-  const canRunAi = Boolean(selectedChapter && !aiRunning && !aiNeedsModel && !aiProviderUnavailable);
+  const aiModelUnavailable = Boolean(aiProviderId && aiModelId && hasLegacyAiModel);
+  const canRunAi = Boolean(
+    selectedChapter &&
+      !aiRunning &&
+      !aiNeedsModel &&
+      !aiProviderUnavailable &&
+      !aiModelUnavailable,
+  );
   const draftText = selectedScene ? selectedScene.body : selectedChapter?.body || "";
 
   function replaceChapter(chapterId: string | null | undefined, patch: Partial<ChapterEditor>) {
@@ -496,6 +507,9 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           {aiProviderUnavailable && (
             <p className="chapter-editor__hint">This provider is disabled. Pick another provider or use fallback.</p>
           )}
+          {aiModelUnavailable && (
+            <p className="chapter-editor__hint">This model is no longer allowed for this provider.</p>
+          )}
           {selectedProvider && (
             <p className="chapter-editor__hint">
               {selectedProvider.streaming_enabled ? "Streaming enabled" : "Single response mode"}
@@ -511,19 +525,12 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
               onChange={(event) => setAiModelId(event.target.value)}
             >
               <option value="">No model</option>
-              {selectedProvider?.models.map((model) => (
+              {selectedAllowedModels.map((model) => (
                 <option key={model.id} value={model.model_id}>
                   {model.display_name}
                 </option>
               ))}
-              {selectedProvider?.default_model_id &&
-                !selectedProvider.models.some(
-                  (model) => model.model_id === selectedProvider.default_model_id,
-                ) && (
-                  <option value={selectedProvider.default_model_id}>
-                    {selectedProvider.default_model_id}
-                  </option>
-                )}
+              {hasLegacyAiModel && <option value={aiModelId}>{aiModelId} (legacy)</option>}
             </select>
           </label>
           <label>

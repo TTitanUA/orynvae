@@ -11,6 +11,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
 
     assert "001_initial.sql" in applied
     assert "002_provider_state.sql" in applied
+    assert "004_provider_model_preferences.sql" in applied
     with sqlite3.connect(data_dir / "app.db") as connection:
         tables = {
             row[0]
@@ -24,6 +25,9 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         canon_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(canon_facts)").fetchall()
         }
+        provider_model_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(provider_models)").fetchall()
+        }
 
     assert "projects" in tables
     assert "model_providers" in tables
@@ -34,5 +38,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "schema_migrations" in tables
     assert "is_enabled" in provider_columns
     assert "is_default" in provider_columns
+    assert "is_allowed" in provider_model_columns
+    assert "routing_config_json" in provider_model_columns
     assert "title" in canon_columns
     assert "status" in canon_columns

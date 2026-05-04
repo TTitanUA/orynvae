@@ -16,7 +16,14 @@ import {
   fetchProjects,
   projectStatusLabel,
 } from "../api/projects";
-import { enabledProviders, fetchProviders, preferredProvider, providerScopeLabel } from "../api/providers";
+import {
+  allowedModels,
+  defaultModelFor,
+  enabledProviders,
+  fetchProviders,
+  preferredProvider,
+  providerScopeLabel,
+} from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import type { Project, ProjectSetupAnalysis } from "../types/projects";
 import type { Provider } from "../types/providers";
@@ -72,10 +79,6 @@ function draftFromAnalysis(analysis: ProjectSetupAnalysis): DraftState {
   };
 }
 
-function defaultModelFor(provider?: Provider): string {
-  return provider?.default_model_id || provider?.models[0]?.model_id || "";
-}
-
 function splitThemes(value: string): string[] {
   return value
     .split(",")
@@ -108,6 +111,7 @@ export function ProjectsRoute() {
     [providers, selectedProviderId],
   );
   const activeProviderCount = useMemo(() => enabledProviders(providers).length, [providers]);
+  const selectedAllowedModels = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
   const providerReady = !selectedProviderId || Boolean(selectedModelId);
   const latestProject = projects[0];
 
@@ -312,18 +316,14 @@ export function ProjectsRoute() {
                   disabled={!selectedProvider}
                 >
                   <option value="">Не выбрана</option>
-                  {selectedProvider?.models.map((model) => (
+                  {selectedAllowedModels.map((model) => (
                     <option key={model.id} value={model.model_id}>
                       {model.display_name}
                     </option>
                   ))}
-                  {selectedProvider?.default_model_id &&
-                    !selectedProvider.models.some(
-                      (model) => model.model_id === selectedProvider.default_model_id,
-                    ) && (
-                      <option value={selectedProvider.default_model_id}>
-                        {selectedProvider.default_model_id}
-                      </option>
+                  {selectedModelId &&
+                    !selectedAllowedModels.some((model) => model.model_id === selectedModelId) && (
+                      <option value={selectedModelId}>{selectedModelId} (legacy)</option>
                     )}
                 </select>
               </label>
@@ -337,7 +337,7 @@ export function ProjectsRoute() {
 
             {!providerReady && (
               <p className="project-setup__external">
-                Select a model before using this provider for setup. Leave provider empty to use fallback setup.
+                Select an allowed model before using this provider for setup. Leave provider empty to use fallback setup.
               </p>
             )}
 

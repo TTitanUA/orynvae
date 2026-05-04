@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { enabledProviders, preferredProvider, providerScopeLabel } from "./providers";
-import type { Provider } from "../types/providers";
+import {
+  allowedModels,
+  defaultModelFor,
+  enabledProviders,
+  preferredProvider,
+  providerScopeLabel,
+} from "./providers";
+import type { Provider, ProviderModel } from "../types/providers";
 
 describe("providerScopeLabel", () => {
   it("marks external providers explicitly", () => {
@@ -21,6 +27,19 @@ describe("providerScopeLabel", () => {
 
     expect(enabledProviders(providers).map((item) => item.id)).toEqual(["enabled-default", "enabled"]);
     expect(preferredProvider(providers)?.id).toBe("enabled-default");
+  });
+
+  it("uses only allowed models for provider defaults", () => {
+    const testProvider = provider({
+      default_model_id: "blocked",
+      models: [
+        model({ model_id: "blocked", is_allowed: false }),
+        model({ model_id: "allowed", display_name: "Allowed", is_allowed: true }),
+      ],
+    });
+
+    expect(allowedModels(testProvider).map((item) => item.model_id)).toEqual(["allowed"]);
+    expect(defaultModelFor(testProvider)).toBe("allowed");
   });
 });
 
@@ -44,6 +63,24 @@ function provider(patch: Partial<Provider>): Provider {
     created_at: "2026-05-02 00:00:00",
     updated_at: "2026-05-02 00:00:00",
     models: [],
+    ...patch,
+  };
+}
+
+function model(patch: Partial<ProviderModel>): ProviderModel {
+  return {
+    id: patch.model_id || "model",
+    provider_id: "provider",
+    model_id: "model",
+    display_name: patch.model_id || "Model",
+    supports_streaming: true,
+    context_window: null,
+    capabilities: {},
+    is_allowed: true,
+    routing_config: null,
+    last_seen_at: null,
+    created_at: "2026-05-02 00:00:00",
+    updated_at: "2026-05-02 00:00:00",
     ...patch,
   };
 }

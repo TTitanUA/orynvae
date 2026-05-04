@@ -8,9 +8,11 @@ from uuid import uuid4
 from app.models.providers import (
     ProjectModelSelection,
     ProviderCreate,
+    ProviderModelPreferencesUpdate,
     ProviderModelRecord,
     ProviderRecord,
     ProviderUpdate,
+    ProviderWithModels,
 )
 from app.providers.adapters import PROVIDER_DEFINITIONS, ProviderModel
 from app.storage.migrations import apply_migrations
@@ -61,6 +63,10 @@ def _model_from_row(row: sqlite3.Row) -> ProviderModelRecord:
     capabilities = {}
     if row["capabilities_json"]:
         capabilities = json.loads(row["capabilities_json"])
+    routing_config = None
+    if row["routing_config_json"]:
+        parsed = json.loads(row["routing_config_json"])
+        routing_config = parsed if isinstance(parsed, dict) else None
     return ProviderModelRecord(
         id=row["id"],
         provider_id=row["provider_id"],
@@ -69,6 +75,8 @@ def _model_from_row(row: sqlite3.Row) -> ProviderModelRecord:
         supports_streaming=_bool(row["supports_streaming"]),
         context_window=row["context_window"],
         capabilities=capabilities,
+        is_allowed=_bool(row["is_allowed"]),
+        routing_config=routing_config,
         last_seen_at=row["last_seen_at"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -94,11 +102,43 @@ def list_models(provider_id: str) -> list[ProviderModelRecord]:
             SELECT *
             FROM provider_models
             WHERE provider_id = ?
+            ORDER BY is_allowed DESC, display_name ASC
+            """,
+            (provider_id,),
+        ).fetchall()
+    return [_model_from_row(row) for row in rows]
+
+
+def list_allowed_models(provider_id: str) -> list[ProviderModelRecord]:
+    with _connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM provider_models
+            WHERE provider_id = ? AND is_allowed = 1
             ORDER BY display_name ASC
             """,
             (provider_id,),
         ).fetchall()
     return [_model_from_row(row) for row in rows]
+
+
+def get_model(provider_id: str, model_id: str) -> ProviderModelRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM provider_models
+            WHERE provider_id = ? AND model_id = ?
+            """,
+            (provider_id, model_id),
+        ).fetchone()
+    return _model_from_row(row) if row else None
+
+
+def get_allowed_model(provider_id: str, model_id: str) -> ProviderModelRecord | None:
+    model = get_model(provider_id, model_id)
+    return model if model and model.is_allowed else None
 
 
 def get_provider(provider_id: str) -> StoredProvider | None:
@@ -166,6 +206,8 @@ def update_provider(provider_id: str, payload: ProviderUpdate) -> ProviderRecord
     values = payload.model_dump(exclude_unset=True)
     if not values:
         return stored.provider
+    if "default_model_id" in values and values["default_model_id"] is not None:
+        _require_allowed_default(provider_id, str(values["default_model_id"]))
 
     is_disabling_default = (
         values.get("is_enabled") is False
@@ -218,14 +260,19 @@ def update_provider_check(provider_id: str, error: str | None) -> None:
 
 def upsert_models(provider_id: str, models: list[ProviderModel]) -> list[ProviderModelRecord]:
     with _connection() as connection:
+        provider_row = connection.execute(
+            "SELECT default_model_id FROM model_providers WHERE id = ?",
+            (provider_id,),
+        ).fetchone()
+        default_model_id = provider_row["default_model_id"] if provider_row else None
         for model in models:
             connection.execute(
                 """
                 INSERT INTO provider_models (
                   id, provider_id, model_id, display_name, supports_streaming,
-                  context_window, capabilities_json, last_seen_at
+                  context_window, capabilities_json, is_allowed, last_seen_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(provider_id, model_id) DO UPDATE SET
                   display_name = excluded.display_name,
                   supports_streaming = excluded.supports_streaming,
@@ -242,6 +289,7 @@ def upsert_models(provider_id: str, models: list[ProviderModel]) -> list[Provide
                     int(model.supports_streaming),
                     model.context_window,
                     json.dumps(model.capabilities or {}, ensure_ascii=True),
+                    int(model.model_id == default_model_id),
                 ),
             )
         connection.commit()
@@ -250,6 +298,12 @@ def upsert_models(provider_id: str, models: list[ProviderModel]) -> list[Provide
 
 
 def set_default_model(provider_id: str, model_id: str | None) -> ProviderRecord | None:
+    stored = get_provider(provider_id)
+    if stored is None:
+        return None
+    if model_id is not None:
+        _require_allowed_default(provider_id, model_id)
+
     with _connection() as connection:
         cursor = connection.execute(
             """
@@ -262,8 +316,99 @@ def set_default_model(provider_id: str, model_id: str | None) -> ProviderRecord 
         connection.commit()
     if cursor.rowcount == 0:
         return None
+    updated = get_provider(provider_id)
+    return updated.provider if updated else None
+
+
+def update_model_preferences(
+    provider_id: str,
+    payload: ProviderModelPreferencesUpdate,
+) -> ProviderWithModels | None:
+    with _connection() as connection:
+        provider_row = connection.execute(
+            "SELECT * FROM model_providers WHERE id = ?",
+            (provider_id,),
+        ).fetchone()
+        if provider_row is None:
+            return None
+
+        model_rows = connection.execute(
+            "SELECT * FROM provider_models WHERE provider_id = ?",
+            (provider_id,),
+        ).fetchall()
+        models_by_id = {row["model_id"]: row for row in model_rows}
+        missing_model_ids = [
+            preference.model_id
+            for preference in payload.models
+            if preference.model_id not in models_by_id
+        ]
+        if missing_model_ids:
+            raise ValueError(f"Unknown provider model: {missing_model_ids[0]}")
+
+        final_allowed = {
+            model_id: _bool(row["is_allowed"])
+            for model_id, row in models_by_id.items()
+        }
+        for preference in payload.models:
+            final_allowed[preference.model_id] = preference.is_allowed
+
+        if payload.default_model_id is not None:
+            if payload.default_model_id not in models_by_id:
+                raise ValueError("Default model does not belong to this provider")
+            if not final_allowed.get(payload.default_model_id, False):
+                raise ValueError("Default model must be allowed")
+
+        provider_type = provider_row["type"]
+        for preference in payload.models:
+            routing_json = None
+            if preference.routing_config is not None:
+                routing_config = preference.routing_config.to_provider_payload()
+                if routing_config and provider_type != "openrouter":
+                    raise ValueError("Routing config is only supported for OpenRouter providers")
+                if routing_config and provider_type == "openrouter":
+                    routing_json = json.dumps(
+                        routing_config,
+                        ensure_ascii=True,
+                        sort_keys=True,
+                    )
+            connection.execute(
+                """
+                UPDATE provider_models
+                SET is_allowed = ?,
+                    routing_config_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE provider_id = ? AND model_id = ?
+                """,
+                (
+                    int(preference.is_allowed),
+                    routing_json,
+                    provider_id,
+                    preference.model_id,
+                ),
+            )
+
+        connection.execute(
+            """
+            UPDATE model_providers
+            SET default_model_id = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (payload.default_model_id, provider_id),
+        )
+        connection.commit()
+
+    return get_provider_with_models(provider_id)
+
+
+def get_provider_with_models(provider_id: str) -> ProviderWithModels | None:
     stored = get_provider(provider_id)
-    return stored.provider if stored else None
+    if stored is None:
+        return None
+    return ProviderWithModels(
+        **stored.provider.model_dump(),
+        models=list_models(provider_id),
+    )
 
 
 def set_default_provider(provider_id: str) -> ProviderRecord | None:
@@ -290,6 +435,7 @@ def set_default_provider(provider_id: str) -> ProviderRecord | None:
 
 
 def set_project_model(selection: ProjectModelSelection) -> ProjectModelSelection | None:
+    _require_allowed_default(selection.provider_id, selection.model_id)
     with _connection() as connection:
         cursor = connection.execute(
             """
@@ -301,3 +447,11 @@ def set_project_model(selection: ProjectModelSelection) -> ProjectModelSelection
         )
         connection.commit()
     return selection if cursor.rowcount else None
+
+
+def _require_allowed_default(provider_id: str, model_id: str) -> None:
+    model = get_model(provider_id, model_id)
+    if model is None:
+        raise ValueError("Model does not belong to this provider")
+    if not model.is_allowed:
+        raise ValueError("Model is not allowed for this provider")

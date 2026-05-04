@@ -114,12 +114,7 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
             media_type="text/plain; charset=utf-8",
         )
 
-    stored = provider_store.get_provider(provider_id)
-    if stored is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    if not stored.provider.is_enabled:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
-
+    stored, model = _load_allowed_provider_model(provider_id, model_id)
     adapter = create_adapter(stored.provider, stored.api_key)
     messages = _chapter_assist_messages(editor, payload)
     temperature = _chapter_temperature(payload.action)
@@ -130,6 +125,7 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
                     model_id=model_id,
                     messages=messages,
                     temperature=temperature,
+                    routing_config=model.routing_config,
                 )
             ),
             media_type="text/plain; charset=utf-8",
@@ -139,6 +135,7 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
         model_id=model_id,
         messages=messages,
         temperature=temperature,
+        routing_config=model.routing_config,
     )
     return Response(content=text, media_type="text/plain; charset=utf-8")
 
@@ -157,16 +154,13 @@ async def check_project_continuity(
     issues: list[ContinuityIssueRecord]
 
     if provider_id and model_id:
-        stored = provider_store.get_provider(provider_id)
-        if stored is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-        if not stored.provider.is_enabled:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
+        stored, model = _load_allowed_provider_model(provider_id, model_id)
         adapter = create_adapter(stored.provider, stored.api_key)
         try:
             raw = await adapter.complete_chat(
                 model_id=model_id,
                 temperature=0.2,
+                routing_config=model.routing_config,
                 messages=[
                     ChatMessage(
                         role="system",
@@ -549,17 +543,13 @@ async def analyze_project_setup(payload: ProjectSetupAnalysisRequest) -> Project
         analysis.warnings.append("AI-провайдер или модель не выбраны, создана локальная заготовка.")
         return analysis
 
-    stored = provider_store.get_provider(payload.provider_id)
-    if stored is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    if not stored.provider.is_enabled:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
-
+    stored, model = _load_allowed_provider_model(payload.provider_id, payload.model_id)
     adapter = create_adapter(stored.provider, stored.api_key)
     try:
         raw = await adapter.complete_chat(
             model_id=payload.model_id,
             temperature=0.35,
+            routing_config=model.routing_config,
             messages=[
                 ChatMessage(
                     role="system",
@@ -598,8 +588,27 @@ def _validate_provider_selection(provider_id: str | None, model_id: str | None) 
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Provider and model must be selected together",
         )
-    if provider_store.get_provider(provider_id) is None:
+    _load_allowed_provider_model(provider_id, model_id)
+
+
+def _load_allowed_provider_model(provider_id: str, model_id: str):
+    stored = provider_store.get_provider(provider_id)
+    if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if not stored.provider.is_enabled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
+    model = provider_store.get_model(provider_id, model_id)
+    if model is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model does not belong to this provider",
+        )
+    if not model.is_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model is not allowed for this provider",
+        )
+    return stored, model
 
 
 def _analysis_from_ai_text(raw_text: str, idea_text: str) -> ProjectSetupAnalysis:

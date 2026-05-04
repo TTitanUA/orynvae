@@ -43,6 +43,16 @@ class ProviderTestResult:
     error: str | None = None
 
 
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str) and item.strip()]
+
+
+def _string_value(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
+
+
 PROVIDER_DEFINITIONS: dict[ProviderType, ProviderDefinition] = {
     "lmstudio": ProviderDefinition(
         type="lmstudio",
@@ -112,6 +122,7 @@ class ProviderAdapter:
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> str:
         raise NotImplementedError
 
@@ -121,11 +132,13 @@ class ProviderAdapter:
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         text = await self.complete_chat(
             model_id=model_id,
             messages=messages,
             temperature=temperature,
+            routing_config=routing_config,
         )
         yield text
 
@@ -185,6 +198,25 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             headers["X-Title"] = "Orynvae"
         return headers
 
+    def _chat_payload(
+        self,
+        *,
+        model_id: str,
+        messages: list[ChatMessage],
+        temperature: float,
+        stream: bool,
+        routing_config: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "model": model_id,
+            "messages": [message.model_dump() for message in messages],
+            "temperature": temperature,
+            "stream": stream,
+        }
+        if self.provider.type == "openrouter" and routing_config:
+            payload["provider"] = routing_config
+        return payload
+
     async def list_models(self) -> list[ProviderModel]:
         url = _join_url(self.provider.base_url, self.provider.models_path)
         async with httpx.AsyncClient(timeout=10) as client:
@@ -202,15 +234,32 @@ class OpenAICompatibleAdapter(ProviderAdapter):
                 continue
             display_name = raw_model.get("name") if isinstance(raw_model.get("name"), str) else model_id
             context_window = raw_model.get("context_length") or raw_model.get("context_window")
+            architecture = raw_model.get("architecture")
+            architecture = architecture if isinstance(architecture, dict) else {}
+            capabilities: dict[str, object] = {
+                "owned_by": raw_model.get("owned_by"),
+                "source": self.provider.type,
+            }
+            if isinstance(context_window, int):
+                capabilities["context_length"] = context_window
+            if input_modalities := _string_list(architecture.get("input_modalities")):
+                capabilities["input_modalities"] = input_modalities
+            if output_modalities := _string_list(architecture.get("output_modalities")):
+                capabilities["output_modalities"] = output_modalities
+            if modality := _string_value(architecture.get("modality")):
+                capabilities["modality"] = modality
+            if instruct_type := _string_value(architecture.get("instruct_type")):
+                capabilities["instruct_type"] = instruct_type
+            if tokenizer := _string_value(architecture.get("tokenizer")):
+                capabilities["tokenizer"] = tokenizer
+            if supported_parameters := _string_list(raw_model.get("supported_parameters")):
+                capabilities["supported_parameters"] = supported_parameters
             models.append(
                 ProviderModel(
                     model_id=model_id,
                     display_name=display_name,
                     context_window=context_window if isinstance(context_window, int) else None,
-                    capabilities={
-                        "owned_by": raw_model.get("owned_by"),
-                        "source": self.provider.type,
-                    },
+                    capabilities=capabilities,
                 )
             )
         return models
@@ -221,14 +270,16 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> str:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
-        payload = {
-            "model": model_id,
-            "messages": [message.model_dump() for message in messages],
-            "temperature": temperature,
-            "stream": False,
-        }
+        payload = self._chat_payload(
+            model_id=model_id,
+            messages=messages,
+            temperature=temperature,
+            stream=False,
+            routing_config=routing_config,
+        )
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(url, headers=self._headers(), json=payload)
             response.raise_for_status()
@@ -253,14 +304,16 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
-        payload = {
-            "model": model_id,
-            "messages": [message.model_dump() for message in messages],
-            "temperature": temperature,
-            "stream": True,
-        }
+        payload = self._chat_payload(
+            model_id=model_id,
+            messages=messages,
+            temperature=temperature,
+            stream=True,
+            routing_config=routing_config,
+        )
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", url, headers=self._headers(), json=payload) as response:
                 response.raise_for_status()
@@ -317,6 +370,7 @@ class OllamaAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> str:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
         payload = {
@@ -342,6 +396,7 @@ class OllamaAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
         payload = {

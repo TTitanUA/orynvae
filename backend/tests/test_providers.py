@@ -1,8 +1,17 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.api import providers as providers_api
 from app.main import app
-from app.providers.adapters import ProviderModel, ProviderTestResult
+from app.models.providers import ChatMessage, ProviderRecord
+from app.providers import adapters
+from app.providers.adapters import OpenAICompatibleAdapter, ProviderModel, ProviderTestResult
+from app.services import provider_store
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
 
 
 class FakeAdapter:
@@ -23,10 +32,10 @@ class FakeAdapter:
 
 
 class FakeChatAdapter(FakeAdapter):
-    async def complete_chat(self, *, model_id, messages, temperature):
+    async def complete_chat(self, *, model_id, messages, temperature, routing_config=None):
         return f"complete:{model_id}:{messages[-1].content}:{temperature}"
 
-    async def stream_chat(self, *, model_id, messages, temperature):
+    async def stream_chat(self, *, model_id, messages, temperature, routing_config=None):
         yield "stream "
         yield f"{model_id} "
         yield messages[-1].content
@@ -75,6 +84,8 @@ def test_create_provider_and_refresh_models(tmp_path, monkeypatch):
     assert body["ok"] is True
     assert body["sample"] == "pong"
     assert body["models"][0]["model_id"] == "local-test-model"
+    assert body["models"][0]["is_allowed"] is False
+    assert body["models"][0]["routing_config"] is None
 
     listed = client.get("/api/providers")
     assert listed.status_code == 200
@@ -118,25 +129,31 @@ def test_provider_chat_streaming_and_disabled_guard(tmp_path, monkeypatch):
     client = TestClient(app)
     provider = client.post(
         "/api/providers",
-        json={"type": "lmstudio", "name": "Chat model", "default_model_id": "draft"},
+        json={
+            "type": "lmstudio",
+            "name": "Chat model",
+            "default_model_id": "local-test-model",
+        },
     ).json()
+    refreshed = client.post(f"/api/providers/{provider['id']}/test", json={})
+    assert refreshed.status_code == 200
 
     streamed = client.post(
         f"/api/providers/{provider['id']}/chat",
         json={
-            "model_id": "draft",
+            "model_id": "local-test-model",
             "messages": [{"role": "user", "content": "continue"}],
             "stream": True,
         },
     )
 
     assert streamed.status_code == 200
-    assert streamed.text == "stream draft continue"
+    assert streamed.text == "stream local-test-model continue"
 
     completed = client.post(
         f"/api/providers/{provider['id']}/chat",
         json={
-            "model_id": "draft",
+            "model_id": "local-test-model",
             "messages": [{"role": "user", "content": "rewrite"}],
             "temperature": 0.4,
             "stream": False,
@@ -144,7 +161,7 @@ def test_provider_chat_streaming_and_disabled_guard(tmp_path, monkeypatch):
     )
 
     assert completed.status_code == 200
-    assert completed.text == "complete:draft:rewrite:0.4"
+    assert completed.text == "complete:local-test-model:rewrite:0.4"
 
     disabled = client.patch(f"/api/providers/{provider['id']}", json={"is_enabled": False})
     assert disabled.status_code == 200
@@ -152,9 +169,229 @@ def test_provider_chat_streaming_and_disabled_guard(tmp_path, monkeypatch):
     blocked = client.post(
         f"/api/providers/{provider['id']}/chat",
         json={
-            "model_id": "draft",
+            "model_id": "local-test-model",
             "messages": [{"role": "user", "content": "continue"}],
         },
     )
 
     assert blocked.status_code == 409
+
+
+def test_model_preferences_update_allow_list_and_routing(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+
+    client = TestClient(app)
+    provider = client.post(
+        "/api/providers",
+        json={"type": "openrouter", "name": "OpenRouter"},
+    ).json()
+    provider_store.upsert_models(
+        provider["id"],
+        [
+            ProviderModel(model_id="anthropic/claude", display_name="Claude"),
+            ProviderModel(model_id="openai/gpt", display_name="GPT"),
+        ],
+    )
+
+    updated = client.patch(
+        f"/api/providers/{provider['id']}/models/preferences",
+        json={
+            "default_model_id": "anthropic/claude",
+            "models": [
+                {
+                    "model_id": "anthropic/claude",
+                    "is_allowed": True,
+                    "routing_config": {
+                        "order": ["anthropic"],
+                        "allow_fallbacks": False,
+                        "data_collection": "deny",
+                        "preferred_max_latency": {"p90": 3},
+                    },
+                },
+                {"model_id": "openai/gpt", "is_allowed": False},
+            ],
+        },
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["default_model_id"] == "anthropic/claude"
+    models = {model["model_id"]: model for model in body["models"]}
+    assert models["anthropic/claude"]["is_allowed"] is True
+    assert models["anthropic/claude"]["routing_config"] == {
+        "allow_fallbacks": False,
+        "data_collection": "deny",
+        "order": ["anthropic"],
+        "preferred_max_latency": {"p90": 3.0},
+    }
+    assert models["openai/gpt"]["is_allowed"] is False
+
+    rejected = client.patch(
+        f"/api/providers/{provider['id']}/models/preferences",
+        json={
+            "default_model_id": "openai/gpt",
+            "models": [{"model_id": "openai/gpt", "is_allowed": False}],
+        },
+    )
+    assert rejected.status_code == 422
+
+
+def test_provider_chat_rejects_disallowed_models(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(providers_api, "create_adapter", lambda provider, api_key: FakeChatAdapter())
+
+    client = TestClient(app)
+    provider = client.post("/api/providers", json={"type": "lmstudio", "name": "Chat"}).json()
+    client.post(f"/api/providers/{provider['id']}/test", json={})
+
+    blocked = client.post(
+        f"/api/providers/{provider['id']}/chat",
+        json={
+            "model_id": "local-test-model",
+            "messages": [{"role": "user", "content": "continue"}],
+        },
+    )
+
+    assert blocked.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_openrouter_model_refresh_keeps_model_metadata(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "data": [
+                    {
+                        "id": "openai/gpt-oss-120b",
+                        "name": "OpenAI: gpt-oss-120b",
+                        "architecture": {
+                            "input_modalities": ["text"],
+                            "output_modalities": ["text"],
+                            "modality": "text->text",
+                            "instruct_type": "chatml",
+                            "tokenizer": "GPT",
+                        },
+                        "context_length": 131072,
+                        "supported_parameters": ["temperature", "top_p", "max_tokens"],
+                    }
+                ]
+            }
+
+    class FakeClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, *, headers):
+            return FakeResponse()
+
+    monkeypatch.setattr(adapters.httpx, "AsyncClient", FakeClient)
+    provider = ProviderRecord(
+        id="provider",
+        type="openrouter",
+        name="OpenRouter",
+        base_url="https://openrouter.ai/api/v1",
+        has_api_key=True,
+        is_local=False,
+        is_external=True,
+        is_enabled=True,
+        is_default=True,
+        streaming_enabled=True,
+        models_path="/models",
+        chat_path="/chat/completions",
+        default_model_id="openai/gpt-oss-120b",
+        last_checked_at=None,
+        last_error=None,
+        created_at="2026-05-04 00:00:00",
+        updated_at="2026-05-04 00:00:00",
+    )
+    adapter = OpenAICompatibleAdapter(provider, "secret")
+
+    models = await adapter.list_models()
+
+    assert models[0].context_window == 131072
+    assert models[0].capabilities == {
+        "context_length": 131072,
+        "input_modalities": ["text"],
+        "instruct_type": "chatml",
+        "modality": "text->text",
+        "output_modalities": ["text"],
+        "owned_by": None,
+        "source": "openrouter",
+        "supported_parameters": ["temperature", "top_p", "max_tokens"],
+        "tokenizer": "GPT",
+    }
+
+
+@pytest.mark.anyio
+async def test_openrouter_payload_includes_routing_config(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    class FakeClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, *, headers, json):
+            captured["url"] = url
+            captured["headers"] = headers
+            captured["json"] = json
+            return FakeResponse()
+
+    monkeypatch.setattr(adapters.httpx, "AsyncClient", FakeClient)
+    provider = ProviderRecord(
+        id="provider",
+        type="openrouter",
+        name="OpenRouter",
+        base_url="https://openrouter.ai/api/v1",
+        has_api_key=True,
+        is_local=False,
+        is_external=True,
+        is_enabled=True,
+        is_default=True,
+        streaming_enabled=True,
+        models_path="/models",
+        chat_path="/chat/completions",
+        default_model_id="deepseek/deepseek-r1",
+        last_checked_at=None,
+        last_error=None,
+        created_at="2026-05-04 00:00:00",
+        updated_at="2026-05-04 00:00:00",
+    )
+    adapter = OpenAICompatibleAdapter(provider, "secret")
+
+    text = await adapter.complete_chat(
+        model_id="deepseek/deepseek-r1",
+        messages=[ChatMessage(role="user", content="Hello")],
+        temperature=0.7,
+        routing_config={"order": ["deepinfra/turbo"], "allow_fallbacks": False},
+    )
+
+    assert text == "ok"
+    assert captured["json"] == {
+        "model": "deepseek/deepseek-r1",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "temperature": 0.7,
+        "stream": False,
+        "provider": {"order": ["deepinfra/turbo"], "allow_fallbacks": False},
+    }

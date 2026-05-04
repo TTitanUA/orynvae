@@ -20,6 +20,8 @@ export type ProviderModel = {
   supports_streaming: boolean;
   context_window: number | null;
   capabilities: Record<string, unknown>;
+  is_allowed: boolean;
+  routing_config: OpenRouterRoutingConfig | null;
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;
@@ -83,4 +85,52 @@ export type ProviderModelRefreshResponse = {
   provider_id: string;
   models: ProviderModel[];
   message: string;
+};
+
+export type OpenRouterSortMode = "price" | "throughput" | "latency";
+export type OpenRouterSortPartition = "model" | "none";
+export type OpenRouterDataCollection = "allow" | "deny";
+export type OpenRouterQuantization =
+  | "int4"
+  | "int8"
+  | "fp4"
+  | "fp6"
+  | "fp8"
+  | "fp16"
+  | "bf16"
+  | "fp32"
+  | "unknown";
+
+export type OpenRouterPercentilePreference = Partial<
+  Record<"p50" | "p75" | "p90" | "p99", number>
+>;
+
+export type OpenRouterRoutingConfig = {
+  order?: string[];
+  allow_fallbacks?: boolean;
+  require_parameters?: boolean;
+  data_collection?: OpenRouterDataCollection;
+  zdr?: boolean;
+  enforce_distillable_text?: boolean;
+  only?: string[];
+  ignore?: string[];
+  quantizations?: OpenRouterQuantization[];
+  sort?: OpenRouterSortMode | { by: OpenRouterSortMode; partition?: OpenRouterSortPartition };
+  preferred_min_throughput?: number | OpenRouterPercentilePreference;
+  preferred_max_latency?: number | OpenRouterPercentilePreference;
+  max_price?: {
+    prompt?: number;
+    completion?: number;
+  };
+};
+
+export type ProviderModelPreferencePayload = {
+  model_id: string;
+  is_allowed: boolean;
+  routing_config?: OpenRouterRoutingConfig | null;
+};
+
+export type ProviderModelPreferencesUpdatePayload = {
+  default_model_id: string | null;
+  models: ProviderModelPreferencePayload[];
 };

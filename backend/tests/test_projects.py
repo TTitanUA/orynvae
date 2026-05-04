@@ -2,10 +2,12 @@ from fastapi.testclient import TestClient
 
 from app.api import projects as projects_api
 from app.main import app
+from app.providers.adapters import ProviderModel
+from app.services import provider_store
 
 
 class FakeProjectSetupAdapter:
-    async def complete_chat(self, *, model_id, messages, temperature):
+    async def complete_chat(self, *, model_id, messages, temperature, routing_config=None):
         return """
         {
           "title": "Город под стеклянным небом",
@@ -25,10 +27,10 @@ class FakeProjectSetupAdapter:
 
 
 class FakeChapterAdapter:
-    async def complete_chat(self, *, model_id, messages, temperature):
+    async def complete_chat(self, *, model_id, messages, temperature, routing_config=None):
         return f"complete:{model_id}:{messages[-1].content[:18]}"
 
-    async def stream_chat(self, *, model_id, messages, temperature):
+    async def stream_chat(self, *, model_id, messages, temperature, routing_config=None):
         yield "streamed "
         yield "chapter help"
 
@@ -86,6 +88,10 @@ def test_project_setup_ai_analysis_uses_selected_provider(tmp_path, monkeypatch)
         "/api/providers",
         json={"type": "lmstudio", "name": "Local setup model", "default_model_id": "story"},
     ).json()
+    provider_store.upsert_models(
+        provider["id"],
+        [ProviderModel(model_id="story", display_name="Story")],
+    )
 
     analyzed = client.post(
         "/api/projects/setup/analyze",
@@ -218,6 +224,10 @@ def test_chapter_editor_round_trip_and_ai_assist(tmp_path, monkeypatch):
         "/api/providers",
         json={"type": "lmstudio", "name": "Chapter model", "default_model_id": "draft"},
     ).json()
+    provider_store.upsert_models(
+        provider["id"],
+        [ProviderModel(model_id="draft", display_name="Draft")],
+    )
     project = client.post(
         "/api/projects/setup",
         json={

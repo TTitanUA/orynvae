@@ -8,6 +8,7 @@ from app.models.providers import (
     ProviderChatRequest,
     ProviderCreate,
     ProviderDefaults,
+    ProviderModelPreferencesUpdate,
     ProviderModelRefreshResponse,
     ProviderRecord,
     ProviderTestRequest,
@@ -43,10 +44,7 @@ def provider_defaults() -> list[ProviderDefaults]:
 def list_providers() -> list[ProviderWithModels]:
     providers = provider_store.list_providers()
     return [
-        ProviderWithModels(
-            **provider.model_dump(),
-            models=provider_store.list_models(provider.id),
-        )
+        ProviderWithModels(**provider.model_dump(), models=provider_store.list_models(provider.id))
         for provider in providers
     ]
 
@@ -58,7 +56,13 @@ def create_provider(payload: ProviderCreate) -> ProviderRecord:
 
 @router.patch("/{provider_id}", response_model=ProviderRecord)
 def update_provider(provider_id: str, payload: ProviderUpdate) -> ProviderRecord:
-    provider = provider_store.update_provider(provider_id, payload)
+    try:
+        provider = provider_store.update_provider(provider_id, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
     return provider
@@ -121,7 +125,30 @@ async def test_provider(
 
 @router.post("/{provider_id}/default-model", response_model=ProviderRecord)
 def set_default_model(provider_id: str, payload: dict[str, str | None]) -> ProviderRecord:
-    provider = provider_store.set_default_model(provider_id, payload.get("model_id"))
+    try:
+        provider = provider_store.set_default_model(provider_id, payload.get("model_id"))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    return provider
+
+
+@router.patch("/{provider_id}/models/preferences", response_model=ProviderWithModels)
+def update_model_preferences(
+    provider_id: str,
+    payload: ProviderModelPreferencesUpdate,
+) -> ProviderWithModels:
+    try:
+        provider = provider_store.update_model_preferences(provider_id, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
     return provider
@@ -137,7 +164,13 @@ def set_default_provider(provider_id: str) -> ProviderRecord:
 
 @router.post("/project-model", response_model=ProjectModelSelection)
 def set_project_model(payload: ProjectModelSelection) -> ProjectModelSelection:
-    selection = provider_store.set_project_model(payload)
+    try:
+        selection = provider_store.set_project_model(payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     if selection is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return selection
@@ -150,6 +183,17 @@ async def chat(provider_id: str, payload: ProviderChatRequest) -> Response:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
     if not stored.provider.is_enabled:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider is disabled")
+    model = provider_store.get_model(provider_id, payload.model_id)
+    if model is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model does not belong to this provider",
+        )
+    if not model.is_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model is not allowed for this provider",
+        )
 
     adapter = create_adapter(stored.provider, stored.api_key)
     if payload.stream and stored.provider.streaming_enabled:
@@ -158,6 +202,7 @@ async def chat(provider_id: str, payload: ProviderChatRequest) -> Response:
                 model_id=payload.model_id,
                 messages=payload.messages,
                 temperature=payload.temperature,
+                routing_config=model.routing_config,
             )),
             media_type="text/plain; charset=utf-8",
         )
@@ -166,6 +211,7 @@ async def chat(provider_id: str, payload: ProviderChatRequest) -> Response:
         model_id=payload.model_id,
         messages=payload.messages,
         temperature=payload.temperature,
+        routing_config=model.routing_config,
     )
     return Response(content=text, media_type="text/plain; charset=utf-8")
 

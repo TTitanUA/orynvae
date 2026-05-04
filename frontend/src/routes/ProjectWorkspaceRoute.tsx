@@ -23,7 +23,7 @@ import {
   requestContinuityCheck,
   updateProjectWorkspace,
 } from "../api/projects";
-import { enabledProviders, fetchProviders } from "../api/providers";
+import { allowedModels, defaultModelFor, enabledProviders, fetchProviders } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
 import { ChapterEditorPanel } from "./ChapterEditorPanel";
 import type { Provider } from "../types/providers";
@@ -104,10 +104,6 @@ function emptyTimelineEvent(position: number): TimelineEvent {
   };
 }
 
-function defaultModelFor(provider?: Provider): string {
-  return provider?.default_model_id || provider?.models[0]?.model_id || "";
-}
-
 function updateItem<T>(items: T[], index: number, patch: Partial<T>): T[] {
   return items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
 }
@@ -138,6 +134,13 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     [providers, providerId],
   );
   const activeProviders = useMemo(() => enabledProviders(providers), [providers]);
+  const selectedAllowedModels = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
+  const currentProjectModelId = workspace?.project.model_id || "";
+  const hasLegacyModel = Boolean(
+    currentProjectModelId &&
+      selectedProvider &&
+      !selectedAllowedModels.some((model) => model.model_id === currentProjectModelId),
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -412,22 +415,24 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                   onChange={(event) => updateProject({ model_id: event.target.value || null })}
                 >
                   <option value="">No model</option>
-                  {selectedProvider?.models.map((model) => (
+                  {selectedAllowedModels.map((model) => (
                     <option key={model.id} value={model.model_id}>
                       {model.display_name}
                     </option>
                   ))}
-                  {selectedProvider?.default_model_id &&
-                    !selectedProvider.models.some(
-                      (model) => model.model_id === selectedProvider.default_model_id,
-                    ) && (
-                      <option value={selectedProvider.default_model_id}>
-                        {selectedProvider.default_model_id}
-                      </option>
-                    )}
+                  {hasLegacyModel && (
+                    <option value={currentProjectModelId}>
+                      {currentProjectModelId} (legacy)
+                    </option>
+                  )}
                 </select>
               </label>
             </div>
+            {hasLegacyModel && (
+              <div className="workspace-route__message is-error">
+                Current project model is no longer allowed for this provider.
+              </div>
+            )}
             <label>
               Description
               <input
