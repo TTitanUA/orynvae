@@ -1,21 +1,31 @@
+import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+
 import { HomeRoute } from "./routes/HomeRoute";
 import { ProjectWorkspaceRoute } from "./routes/ProjectWorkspaceRoute";
 import { ProviderSettingsRoute } from "./routes/ProviderSettingsRoute";
 import { ProjectsRoute } from "./routes/ProjectsRoute";
 
+function ProjectWorkspaceRouteFromParams() {
+  const { projectId } = useParams<{ projectId: string }>();
+
+  if (!projectId) {
+    return <HomeRoute />;
+  }
+
+  return <ProjectWorkspaceRoute projectId={projectId} />;
+}
+
 export function App() {
-  const workspaceMatch = window.location.pathname.match(/^\/projects\/([^/]+)\/workspace$/);
-  if (workspaceMatch) {
-    return <ProjectWorkspaceRoute projectId={decodeURIComponent(workspaceMatch[1])} />;
-  }
-
-  if (window.location.pathname === "/settings/providers") {
-    return <ProviderSettingsRoute />;
-  }
-
-  if (window.location.pathname === "/projects" || window.location.pathname === "/projects/new") {
-    return <ProjectsRoute />;
-  }
-
-  return <HomeRoute />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/projects" element={<ProjectsRoute />} />
+        <Route path="/projects/new" element={<ProjectsRoute />} />
+        <Route path="/projects/:projectId/workspace" element={<ProjectWorkspaceRouteFromParams />} />
+        <Route path="/settings/providers" element={<ProviderSettingsRoute />} />
+        <Route path="*" element={<HomeRoute />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }

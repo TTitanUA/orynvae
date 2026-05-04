@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BookMarked,
   Boxes,
@@ -254,7 +255,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
 
   if (loading) {
     return (
-      <AppShell currentPath="/projects">
+      <AppShell>
         <div className="workspace-route__state">Loading workspace...</div>
       </AppShell>
     );
@@ -262,7 +263,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
 
   if (!workspace) {
     return (
-      <AppShell currentPath="/projects">
+      <AppShell>
         <div className="workspace-route__state is-error">{error || "Workspace not found."}</div>
       </AppShell>
     );
@@ -277,14 +278,14 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
   }
 
   return (
-    <AppShell currentPath="/projects">
+    <AppShell>
       <div className="workspace-route">
         <header className="workspace-route__header">
           <div>
-            <a className="workspace-route__back" href="/projects">
+            <Link className="workspace-route__back" to="/projects">
               <ChevronLeft size={16} aria-hidden="true" />
               Projects
-            </a>
+            </Link>
             <h1>{workspace.project.name || "Untitled project"}</h1>
             <p>{workspace.project.description || "Shape the project history and canon base."}</p>
           </div>

@@ -976,7 +976,7 @@ export function ProviderSettingsRoute() {
   }
 
   return (
-    <AppShell currentPath="/settings/providers">
+    <AppShell>
       <div className="provider-route">
         <header className="provider-route__header">
           <div>

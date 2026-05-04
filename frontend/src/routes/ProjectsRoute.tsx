@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
   CheckCircle2,
@@ -212,7 +213,7 @@ export function ProjectsRoute() {
   }
 
   return (
-    <AppShell currentPath="/projects">
+    <AppShell>
       <div className="projects-route">
         <header className="projects-route__header">
           <div>
@@ -239,10 +240,10 @@ export function ProjectsRoute() {
           <div className={`projects-route__message ${error ? "is-error" : "is-ready"}`}>
             <span>{error || notice}</span>
             {createdProjectId && !error && (
-              <a href={`/projects/${encodeURIComponent(createdProjectId)}/workspace`}>
+              <Link to={`/projects/${encodeURIComponent(createdProjectId)}/workspace`}>
                 <PencilLine size={16} aria-hidden="true" />
                 Open workspace
-              </a>
+              </Link>
             )}
           </div>
         )}
@@ -535,9 +536,9 @@ export function ProjectsRoute() {
                 <div className="project-card__header">
                   <div>
                     <h3>
-                      <a href={`/projects/${encodeURIComponent(project.id)}/workspace`}>
+                      <Link to={`/projects/${encodeURIComponent(project.id)}/workspace`}>
                         {project.name}
-                      </a>
+                      </Link>
                     </h3>
                     <p>{project.description || project.synopsis || "Без описания"}</p>
                   </div>

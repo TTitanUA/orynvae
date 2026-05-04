@@ -56,7 +56,7 @@ export function HomeRoute() {
   }, []);
 
   return (
-    <AppShell currentPath="/">
+    <AppShell>
       <div className="home-route">
         <header className="home-route__header">
           <div>

@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 
 import "./AppShell.css";
 
 type AppShellProps = {
   children: ReactNode;
-  currentPath?: string;
 };
 
-export function AppShell({ children, currentPath = "/" }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar" aria-label="Разделы Orynvae">
@@ -16,16 +16,13 @@ export function AppShell({ children, currentPath = "/" }: AppShellProps) {
           <small>local authoring workspace</small>
         </div>
         <nav className="app-shell__nav">
-          <a href="/" aria-current={currentPath === "/" ? "page" : undefined}>
+          <NavLink to="/" end>
             Обзор
-          </a>
-          <a href="/projects">Проекты</a>
-          <a
-            href="/settings/providers"
-            aria-current={currentPath === "/settings/providers" ? "page" : undefined}
-          >
+          </NavLink>
+          <NavLink to="/projects">Проекты</NavLink>
+          <NavLink to="/settings/providers">
             AI-провайдеры
-          </a>
+          </NavLink>
         </nav>
       </aside>
       <main className="app-shell__main">{children}</main>
