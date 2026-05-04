@@ -204,30 +204,3 @@
 .chapter-editor__suggestion textarea {
   background: var(--color-surface-subtle);
 }
-
-@media (max-width: 1120px) {
-  .chapter-editor__layout {
-    grid-template-columns: 1fr;
-  }
-
-  .chapter-editor__ai {
-    position: static;
-  }
-}
-
-@media (max-width: 720px) {
-  .chapter-editor__toolbar,
-  .chapter-editor__actions,
-  .chapter-editor__ai-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .chapter-editor__meta {
-    grid-template-columns: 1fr;
-  }
-
-  .chapter-editor__meta button {
-    width: 100%;
-  }
-}

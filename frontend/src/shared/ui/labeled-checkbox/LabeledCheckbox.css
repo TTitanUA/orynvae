@@ -17,10 +17,3 @@
   height: 1.25rem;
   accent-color: #1f6f69;
 }
-
-@media (max-width: 620px) {
-  .labeled-checkbox {
-    align-items: start;
-    flex-direction: column;
-  }
-}

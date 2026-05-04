@@ -5,7 +5,7 @@
 }
 
 html {
-  min-width: 320px;
+  min-width: var(--app-min-width);
   color: var(--color-text);
   background: var(--color-page);
   font-family:
@@ -14,7 +14,13 @@ html {
 }
 
 body {
+  min-width: var(--app-min-width);
   margin: 0;
+}
+
+#root {
+  min-width: var(--app-min-width);
+  min-height: 100vh;
 }
 
 button,
@@ -23,4 +29,3 @@ textarea,
 select {
   font: inherit;
 }
-

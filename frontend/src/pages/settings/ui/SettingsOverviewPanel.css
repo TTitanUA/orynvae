@@ -35,9 +35,3 @@
   color: #1f6f69;
   background: var(--color-surface-subtle);
 }
-
-@media (max-width: 620px) {
-  .settings-overview-panel {
-    grid-template-columns: 1fr;
-  }
-}

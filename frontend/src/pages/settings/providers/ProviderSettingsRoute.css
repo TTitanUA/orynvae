@@ -518,34 +518,3 @@
   border-radius: 6px;
   background: #fff7f5;
 }
-
-@media (max-width: 980px) {
-  .provider-route__layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 680px) {
-  .provider-route__header,
-  .provider-card__model-row,
-  .provider-model-panel__tools,
-  .provider-model-row__main,
-  .provider-routing__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .provider-form__paths,
-  .provider-form__title,
-  .provider-card__header {
-    grid-template-columns: 1fr;
-  }
-
-  .provider-card__scope {
-    justify-self: start;
-  }
-
-  .provider-card__badges {
-    justify-content: start;
-  }
-}

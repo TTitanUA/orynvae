@@ -20,3 +20,7 @@
 
 - Root `AGENTS.md` verification rules still apply.
 - For visible frontend changes, run automated checks and manually verify the affected flow in Chrome DevTools.
+- The application is desktop-only. The minimum supported viewport width is 1366px.
+- Do not add mobile/tablet breakpoints, hamburger navigation, phone-style full-width controls, or single-column mobile layouts unless the product requirement explicitly changes.
+- For visible frontend changes, verify at 1366px width and at wider desktop sizes.
+- If support below 1366px is requested, ask for explicit confirmation before implementing it.

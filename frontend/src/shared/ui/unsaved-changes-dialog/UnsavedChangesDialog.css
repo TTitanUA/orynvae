@@ -66,14 +66,3 @@
   background: #b95757;
   color: #ffffff;
 }
-
-@media (max-width: 520px) {
-  .unsaved-dialog {
-    grid-template-columns: 1fr;
-  }
-
-  .unsaved-dialog__actions {
-    justify-content: stretch;
-    flex-direction: column;
-  }
-}

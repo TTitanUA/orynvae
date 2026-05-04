@@ -291,32 +291,3 @@
 .canon-review__issue.is-info {
   border-left-color: #1f6f69;
 }
-
-@media (max-width: 760px) {
-  .workspace-route__header,
-  .workspace-panel__heading,
-  .workspace-subsection__header {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .workspace-nav {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .workspace-panel__actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .workspace-grid.is-two {
-    grid-template-columns: 1fr;
-  }
-
-  .canon-link-row,
-  .canon-review__issue {
-    align-items: stretch;
-    flex-direction: column;
-  }
-}

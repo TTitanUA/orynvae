@@ -71,19 +71,3 @@
   color: var(--color-text-muted);
   font-size: 0.875rem;
 }
-
-@media (max-width: 760px) {
-  .health-panel__header {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .health-panel__header .status-pill {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
-  .health-panel__grid {
-    grid-template-columns: 1fr;
-  }
-}
-

@@ -57,16 +57,3 @@
   text-decoration: none;
   white-space: nowrap;
 }
-
-@media (max-width: 760px) {
-  .projects-header,
-  .projects-header__actions,
-  .projects-header__summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .projects-header__create-link {
-    width: 100%;
-  }
-}

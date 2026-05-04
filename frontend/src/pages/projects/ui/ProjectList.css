@@ -84,9 +84,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-@media (max-width: 760px) {
-  .project-list {
-    grid-template-columns: 1fr;
-  }
-}

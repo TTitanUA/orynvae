@@ -263,27 +263,3 @@
   color: var(--color-text);
   background: #eef7f5;
 }
-
-@media (max-width: 980px) {
-  .project-create-route__layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .project-create-route__header,
-  .project-create-route__message {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .project-create-route__back-link,
-  .project-create-route__message a {
-    width: 100%;
-  }
-
-  .project-create-route__provider-row,
-  .project-draft-panel__grid {
-    grid-template-columns: 1fr;
-  }
-}
