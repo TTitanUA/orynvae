@@ -80,6 +80,8 @@ function stopProcessTree(child) {
 
 const backendDir = join(repoRoot, "backend");
 const frontendDir = join(repoRoot, "frontend");
+process.env.DEBUG = process.env.DEBUG || "true";
+
 const backendPython = join(
   backendDir,
   ".venv",
