@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 
+from app.core.debug_logging import debug_log
 from app.models.projects import (
     CanonFactRecord,
     ChapterAiRequest,
@@ -109,6 +110,12 @@ async def assist_chapter_editor(project_id: str, payload: ChapterAiRequest) -> R
     provider_id = payload.provider_id or editor.project.provider_id
     model_id = payload.model_id or editor.project.model_id
     if not provider_id or not model_id:
+        debug_log(
+            "backend",
+            "LLM",
+            "chapter.assist.fallback.no_model",
+            {"project_id": project_id, "action": payload.action},
+        )
         return Response(
             content=_fallback_chapter_assist(editor, payload),
             media_type="text/plain; charset=utf-8",
@@ -179,6 +186,18 @@ async def check_project_continuity(
             )
             issues = _continuity_issues_from_ai_text(raw)
         except Exception as exc:
+            debug_log(
+                "backend",
+                "LLM",
+                "continuity.check.fallback.error",
+                {
+                    "project_id": project_id,
+                    "provider_id": provider_id,
+                    "model_id": model_id,
+                    "error_type": exc.__class__.__name__,
+                    "error": str(exc),
+                },
+            )
             issues = _fallback_continuity_issues(workspace, payload.text)
             issues.append(
                 ContinuityIssueRecord(
@@ -189,6 +208,12 @@ async def check_project_continuity(
                 )
             )
     else:
+        debug_log(
+            "backend",
+            "LLM",
+            "continuity.check.fallback.no_model",
+            {"project_id": project_id},
+        )
         issues = _fallback_continuity_issues(workspace, payload.text)
 
     check = project_store.store_continuity_check(
@@ -539,6 +564,12 @@ def _find_scene(chapter: ChapterEditorRecord | None, scene_id: str | None) -> ob
 @router.post("/setup/analyze", response_model=ProjectSetupAnalysis)
 async def analyze_project_setup(payload: ProjectSetupAnalysisRequest) -> ProjectSetupAnalysis:
     if not payload.provider_id or not payload.model_id:
+        debug_log(
+            "backend",
+            "LLM",
+            "project.setup.analyze.fallback.no_model",
+            {"has_provider_id": bool(payload.provider_id), "has_model_id": bool(payload.model_id)},
+        )
         analysis = _fallback_analysis(payload.idea_text)
         analysis.warnings.append("AI-провайдер или модель не выбраны, создана локальная заготовка.")
         return analysis
@@ -571,6 +602,17 @@ async def analyze_project_setup(payload: ProjectSetupAnalysisRequest) -> Project
             ],
         )
     except Exception as exc:
+        debug_log(
+            "backend",
+            "LLM",
+            "project.setup.analyze.fallback.error",
+            {
+                "provider_id": payload.provider_id,
+                "model_id": payload.model_id,
+                "error_type": exc.__class__.__name__,
+                "error": str(exc),
+            },
+        )
         analysis = _fallback_analysis(payload.idea_text)
         analysis.warnings.append(f"AI-анализ недоступен: {exc.__class__.__name__}")
         return analysis
