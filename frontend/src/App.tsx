@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 
 import { HomeRoute } from "./routes/HomeRoute";
+import { ProjectCreateRoute } from "./routes/ProjectCreateRoute";
 import { ProjectWorkspaceRoute } from "./routes/ProjectWorkspaceRoute";
 import { ProviderSettingsRoute } from "./routes/ProviderSettingsRoute";
 import { ProjectsRoute } from "./routes/ProjectsRoute";
@@ -21,7 +22,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/projects" element={<ProjectsRoute />} />
-        <Route path="/projects/new" element={<ProjectsRoute />} />
+        <Route path="/projects/create" element={<ProjectCreateRoute />} />
         <Route path="/projects/:projectId/workspace" element={<ProjectWorkspaceRouteFromParams />} />
         <Route path="/settings/providers" element={<ProviderSettingsRoute />} />
         <Route path="*" element={<HomeRoute />} />
