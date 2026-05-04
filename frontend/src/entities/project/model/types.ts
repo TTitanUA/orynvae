@@ -102,6 +102,8 @@ export type WorldBible = {
 export type CharacterWorkspace = {
   id?: string | null;
   name: string;
+  gender?: string | null;
+  age?: string | null;
   role?: string | null;
   biography?: string | null;
   motivation?: string | null;

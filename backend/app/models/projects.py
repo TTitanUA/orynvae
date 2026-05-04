@@ -131,12 +131,176 @@ class WorldBibleRecord(BaseModel):
 class CharacterWorkspaceRecord(BaseModel):
     id: str | None = None
     name: str = Field(min_length=1, max_length=160)
+    gender: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=120)
     role: str | None = Field(default=None, max_length=160)
     biography: str | None = Field(default=None, max_length=5000)
     motivation: str | None = Field(default=None, max_length=1200)
     goal: str | None = Field(default=None, max_length=1200)
     fear: str | None = Field(default=None, max_length=1200)
     internal_conflict: str | None = Field(default=None, max_length=1200)
+
+
+class CharacterRelationshipCreate(BaseModel):
+    target_character_id: str = Field(min_length=1, max_length=160)
+    relationship_type: str = Field(min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=1200)
+
+
+class CharacterRelationshipUpdate(CharacterRelationshipCreate):
+    id: str | None = None
+
+
+class CharacterRelationshipRecord(BaseModel):
+    id: str
+    project_id: str
+    source_character_id: str
+    target_character_id: str
+    relationship_type: str
+    description: str | None = None
+    created_at: str
+    updated_at: str
+    source_character_name: str | None = None
+    target_character_name: str | None = None
+
+
+class CharacterCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    gender: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=120)
+    role: str | None = Field(default=None, max_length=160)
+    biography: str | None = Field(default=None, max_length=5000)
+    motivation: str | None = Field(default=None, max_length=1200)
+    goal: str | None = Field(default=None, max_length=1200)
+    fear: str | None = Field(default=None, max_length=1200)
+    internal_conflict: str | None = Field(default=None, max_length=1200)
+    relationships: list[CharacterRelationshipCreate] = Field(default_factory=list)
+
+
+class CharacterUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    gender: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=120)
+    role: str | None = Field(default=None, max_length=160)
+    biography: str | None = Field(default=None, max_length=5000)
+    motivation: str | None = Field(default=None, max_length=1200)
+    goal: str | None = Field(default=None, max_length=1200)
+    fear: str | None = Field(default=None, max_length=1200)
+    internal_conflict: str | None = Field(default=None, max_length=1200)
+    relationships: list[CharacterRelationshipUpdate] | None = None
+
+
+class CharacterRecord(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    gender: str | None = None
+    age: str | None = None
+    role: str | None = None
+    biography: str | None = None
+    motivation: str | None = None
+    goal: str | None = None
+    fear: str | None = None
+    internal_conflict: str | None = None
+    created_at: str
+    updated_at: str
+    relationships: list[CharacterRelationshipRecord] = Field(default_factory=list)
+
+
+class CharacterListItem(CharacterRecord):
+    pass
+
+
+class CharacterBulkCreateItem(BaseModel):
+    draft_id: str | None = Field(default=None, max_length=80)
+    name: str = Field(min_length=1, max_length=160)
+    gender: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=120)
+    role: str | None = Field(default=None, max_length=160)
+    biography: str | None = Field(default=None, max_length=5000)
+    motivation: str | None = Field(default=None, max_length=1200)
+    goal: str | None = Field(default=None, max_length=1200)
+    fear: str | None = Field(default=None, max_length=1200)
+    internal_conflict: str | None = Field(default=None, max_length=1200)
+
+
+class CharacterBulkCreateRelationship(BaseModel):
+    source_draft_id: str = Field(min_length=1, max_length=80)
+    target_draft_id: str = Field(min_length=1, max_length=80)
+    relationship_type: str = Field(min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=1200)
+
+
+class CharacterBulkCreate(BaseModel):
+    characters: list[CharacterBulkCreateItem] = Field(min_length=1)
+    relationships: list[CharacterBulkCreateRelationship] = Field(default_factory=list)
+
+
+class CharacterBulkCreateResponse(BaseModel):
+    characters: list[CharacterRecord] = Field(default_factory=list)
+    relationships: list[CharacterRelationshipRecord] = Field(default_factory=list)
+
+
+class CharacterBulkDraftRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=12000)
+    provider_id: str | None = None
+    model_id: str | None = None
+    max_characters: int = Field(default=6, ge=1, le=20)
+    include_relationships: bool = True
+
+
+class CharacterBulkDraftItem(BaseModel):
+    draft_id: str
+    name: str
+    gender: str | None = None
+    age: str | None = None
+    role: str | None = None
+    biography: str | None = None
+
+
+class CharacterBulkDraftRelationship(BaseModel):
+    source_draft_id: str
+    target_draft_id: str
+    relationship_type: str
+    description: str | None = None
+
+
+class CharacterBulkDraftResponse(BaseModel):
+    characters: list[CharacterBulkDraftItem] = Field(default_factory=list)
+    relationships: list[CharacterBulkDraftRelationship] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    raw_text: str | None = None
+
+
+CharacterProfileAssistMode = Literal["expand", "revise", "relationships", "conflict"]
+
+
+class CharacterProfileDraft(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    gender: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=120)
+    role: str | None = Field(default=None, max_length=160)
+    biography: str | None = Field(default=None, max_length=5000)
+    motivation: str | None = Field(default=None, max_length=1200)
+    goal: str | None = Field(default=None, max_length=1200)
+    fear: str | None = Field(default=None, max_length=1200)
+    internal_conflict: str | None = Field(default=None, max_length=1200)
+
+
+class CharacterProfileAssistRequest(BaseModel):
+    character_id: str | None = None
+    draft: CharacterProfileDraft = Field(default_factory=CharacterProfileDraft)
+    instruction: str = Field(default="", max_length=4000)
+    mode: CharacterProfileAssistMode = "expand"
+    provider_id: str | None = None
+    model_id: str | None = None
+
+
+class CharacterProfileAssistResponse(BaseModel):
+    patch: CharacterProfileDraft = Field(default_factory=CharacterProfileDraft)
+    suggested_relationships: list[CharacterRelationshipCreate] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    raw_text: str | None = None
 
 
 class PlotArcWorkspaceRecord(BaseModel):

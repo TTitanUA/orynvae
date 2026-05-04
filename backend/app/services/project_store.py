@@ -544,6 +544,8 @@ def _get_characters(
         CharacterWorkspaceRecord(
             id=row["id"],
             name=row["name"],
+            gender=row["gender"],
+            age=row["age"],
             role=row["role"],
             biography=row["biography"],
             motivation=row["motivation"],
@@ -882,19 +884,73 @@ def _replace_characters(
     project_id: str,
     characters: list[CharacterWorkspaceRecord],
 ) -> None:
-    connection.execute("DELETE FROM characters WHERE project_id = ?", (project_id,))
+    existing_rows = connection.execute(
+        "SELECT * FROM characters WHERE project_id = ?",
+        (project_id,),
+    ).fetchall()
+    existing_by_id = {row["id"]: row for row in existing_rows}
+    incoming_ids: list[str] = []
+
     for character in characters:
+        character_id = character.id or str(uuid4())
+        existing = existing_by_id.get(character_id)
+        incoming_ids.append(character_id)
+        gender = (
+            _clean(character.gender)
+            if "gender" in character.model_fields_set
+            else (existing["gender"] if existing else None)
+        )
+        age = (
+            _clean(character.age)
+            if "age" in character.model_fields_set
+            else (existing["age"] if existing else None)
+        )
+        if existing:
+            connection.execute(
+                """
+                UPDATE characters
+                SET name = ?,
+                    gender = ?,
+                    age = ?,
+                    role = ?,
+                    biography = ?,
+                    motivation = ?,
+                    goal = ?,
+                    fear = ?,
+                    internal_conflict = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE project_id = ? AND id = ?
+                """,
+                (
+                    character.name.strip(),
+                    gender,
+                    age,
+                    _clean(character.role),
+                    _clean(character.biography),
+                    _clean(character.motivation),
+                    _clean(character.goal),
+                    _clean(character.fear),
+                    _clean(character.internal_conflict),
+                    project_id,
+                    character_id,
+                ),
+            )
+            continue
+
         connection.execute(
             """
             INSERT INTO characters (
-              id, project_id, name, role, biography, motivation, goal, fear, internal_conflict
+              id, project_id, name, gender, age, role, biography, motivation,
+              goal, fear, internal_conflict
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                str(uuid4()),
+                character_id,
                 project_id,
                 character.name.strip(),
+                gender,
+                age,
                 _clean(character.role),
                 _clean(character.biography),
                 _clean(character.motivation),
@@ -903,6 +959,17 @@ def _replace_characters(
                 _clean(character.internal_conflict),
             ),
         )
+    if incoming_ids:
+        placeholders = ", ".join("?" for _ in incoming_ids)
+        connection.execute(
+            f"""
+            DELETE FROM characters
+            WHERE project_id = ? AND id NOT IN ({placeholders})
+            """,
+            [project_id, *incoming_ids],
+        )
+    else:
+        connection.execute("DELETE FROM characters WHERE project_id = ?", (project_id,))
 
 
 def _snapshot_chapter_drafts(

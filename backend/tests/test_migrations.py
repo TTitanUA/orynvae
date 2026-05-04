@@ -28,6 +28,9 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         provider_model_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(provider_models)").fetchall()
         }
+        character_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(characters)").fetchall()
+        }
 
     assert "projects" in tables
     assert "model_providers" in tables
@@ -40,5 +43,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "is_default" in provider_columns
     assert "is_allowed" in provider_model_columns
     assert "routing_config_json" in provider_model_columns
+    assert "gender" in character_columns
+    assert "age" in character_columns
     assert "title" in canon_columns
     assert "status" in canon_columns
