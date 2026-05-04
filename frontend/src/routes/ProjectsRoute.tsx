@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { BookOpen, EyeOff, FolderKanban, Plus, Shapes } from "lucide-react";
 
 import { fetchProjects } from "../api/projects";
+import { NoticeBlock } from "../components/molecules/NoticeBlock";
+import { ProjectList } from "../components/organisms/ProjectList";
+import { ProjectsHeader } from "../components/organisms/ProjectsHeader";
 import { AppShell } from "../components/templates/AppShell";
 import { useShowHiddenItems } from "../privacySettings";
 import type { Project } from "../types/projects";
 import "./ProjectsRoute.css";
-
-function projectField(value: string | null | undefined): string {
-  return value?.trim() || "Не задано";
-}
 
 export function ProjectsRoute() {
   const [showHiddenItems] = useShowHiddenItems();
@@ -52,72 +49,17 @@ export function ProjectsRoute() {
   return (
     <AppShell>
       <div className="projects-route">
-        <header className="projects-route__header">
-          <div>
-            <p className="projects-route__eyebrow">Orynvae</p>
-            <h1>Проекты</h1>
-          </div>
-          <div className="projects-route__actions">
-            <div className="projects-route__summary" aria-label="Сводка проектов">
-              <span>
-                <FolderKanban size={16} aria-hidden="true" />
-                {projects.length}
-              </span>
-              <span>
-                <BookOpen size={16} aria-hidden="true" />
-                {activeProjects}
-              </span>
-            </div>
-            <Link className="projects-route__create-link" to="/projects/create">
-              <Plus size={16} aria-hidden="true" />
-              Создать проект
-            </Link>
-          </div>
-        </header>
+        <ProjectsHeader activeProjects={activeProjects} totalProjects={projects.length} />
 
-        {error && <div className="projects-route__message is-error">{error}</div>}
+        {error && <NoticeBlock tone="error">{error}</NoticeBlock>}
 
-        {loading && <div className="projects-route__empty">Загрузка проектов</div>}
+        {loading && <NoticeBlock>Загрузка проектов</NoticeBlock>}
 
         {!loading && !error && projects.length === 0 && (
-          <div className="projects-route__empty">Проектов пока нет</div>
+          <NoticeBlock>Проектов пока нет</NoticeBlock>
         )}
 
-        {!loading && projects.length > 0 && (
-          <section className="project-list" aria-label="Список проектов">
-            {projects.map((project) => (
-              <article className="project-card" key={project.id}>
-                <div className="project-card__title">
-                  <Shapes size={18} aria-hidden="true" />
-                  <h2>
-                    <Link to={`/projects/${encodeURIComponent(project.id)}/workspace/overview`}>
-                      {project.name}
-                    </Link>
-                  </h2>
-                  {project.is_hidden && (
-                    <span className="project-card__hidden" title="Скрытый проект">
-                      <EyeOff size={14} aria-hidden="true" />
-                    </span>
-                  )}
-                </div>
-                <dl className="project-card__meta">
-                  <div>
-                    <dt>Формат</dt>
-                    <dd>{projectField(project.settings?.format)}</dd>
-                  </div>
-                  <div>
-                    <dt>Жанр</dt>
-                    <dd>{projectField(project.settings?.genre)}</dd>
-                  </div>
-                  <div>
-                    <dt>Сеттинг</dt>
-                    <dd>{projectField(project.settings?.setting)}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </section>
-        )}
+        {!loading && projects.length > 0 && <ProjectList projects={projects} />}
       </div>
     </AppShell>
   );

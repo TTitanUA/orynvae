@@ -1,0 +1,24 @@
+.settings-layout {
+  display: grid;
+  width: 100%;
+  max-width: 72rem;
+  gap: 1.25rem;
+}
+
+.settings-layout__header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-layout__eyebrow {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.settings-layout__header h1 {
+  margin: 0;
+  font-size: 1.875rem;
+}
