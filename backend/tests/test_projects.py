@@ -109,6 +109,61 @@ def test_project_setup_ai_analysis_uses_selected_provider(tmp_path, monkeypatch)
     assert body["warnings"] == []
 
 
+def test_project_setup_create_accepts_expanded_ai_metadata(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    tone = (
+        "Теплый, реалистичный, с нотками грусти и надежды; подчеркивает детские "
+        "чувства, несовершенство отношений и поиски гармонии."
+    )
+    point_of_view = (
+        "Основное повествование - от первого лица (брат), периодические вставки - "
+        "третье лицо для сцен без его прямого участия."
+    )
+
+    created = client.post(
+        "/api/projects/setup",
+        json={
+            "name": "Лето в деревне",
+            "idea_text": "Брат и сестра проводят летние каникулы в деревне.",
+            "description": (
+                "Повседневная история о летних каникулах брата и сестры, приехавших "
+                "в маленькую деревню к бабушке и дедушке."
+            ),
+            "synopsis": (
+                "14-летняя сестра и 12-летний брат каждый год проводят каникулы в "
+                "деревне, где старые обиды мешают им снова стать близкими."
+            ),
+            "genre": "Детская проза / повседневная драма",
+            "tone": tone,
+            "setting": (
+                "Маленькая деревня в России. Локации: дом бабушки, дома друзей, "
+                "магазин, речка, дом главы деревни, секретная база детей в лесу."
+            ),
+            "format": (
+                "Проза, повествование от первого лица с периодическими переключениями "
+                "на третье лицо для расширения контекста"
+            ),
+            "central_conflict": (
+                "Внутренний конфликт брата - обида из-за предпочтений родителей к "
+                "сестре и его попытки скрыть это; внешний - разрыв в отношениях, "
+                "который может усилиться или исчезнуть за лето."
+            ),
+            "themes": ["Семейные отношения", "Детская дружба"],
+            "directions": ["Сближение сестры и брата через общие приключения"],
+            "selected_direction": "Сближение сестры и брата через общие приключения",
+            "target_length": "150-200 страниц",
+            "point_of_view": point_of_view,
+        },
+    )
+
+    assert created.status_code == 201
+    project = created.json()
+    assert project["name"] == "Лето в деревне"
+    assert project["settings"]["tone"] == tone
+    assert project["settings"]["settings"]["point_of_view"] == point_of_view
+
+
 def test_project_workspace_round_trip(tmp_path, monkeypatch):
     monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
     client = TestClient(app)

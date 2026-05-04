@@ -5,7 +5,12 @@ from app.api import providers as providers_api
 from app.main import app
 from app.models.providers import ChatMessage, ProviderRecord
 from app.providers import adapters
-from app.providers.adapters import OpenAICompatibleAdapter, ProviderModel, ProviderTestResult
+from app.providers.adapters import (
+    OllamaAdapter,
+    OpenAICompatibleAdapter,
+    ProviderModel,
+    ProviderTestResult,
+)
 from app.services import provider_store
 
 
@@ -39,6 +44,13 @@ class FakeChatAdapter(FakeAdapter):
         yield "stream "
         yield f"{model_id} "
         yield messages[-1].content
+
+
+def _assert_local_chat_timeout(timeout):
+    assert timeout.connect == adapters.CHAT_CONNECT_TIMEOUT_SECONDS
+    assert timeout.read is None
+    assert timeout.write == adapters.CHAT_WRITE_TIMEOUT_SECONDS
+    assert timeout.pool == adapters.CHAT_POOL_TIMEOUT_SECONDS
 
 
 def test_provider_defaults_include_external_marker(tmp_path, monkeypatch):
@@ -344,7 +356,7 @@ async def test_openrouter_payload_includes_routing_config(monkeypatch):
 
     class FakeClient:
         def __init__(self, timeout):
-            self.timeout = timeout
+            captured["timeout"] = timeout
 
         async def __aenter__(self):
             return self
@@ -395,3 +407,120 @@ async def test_openrouter_payload_includes_routing_config(monkeypatch):
         "stream": False,
         "provider": {"order": ["deepinfra/turbo"], "allow_fallbacks": False},
     }
+    assert captured["timeout"].read == adapters.EXTERNAL_CHAT_READ_TIMEOUT_SECONDS
+
+
+@pytest.mark.anyio
+async def test_local_openai_compatible_chat_has_no_read_timeout(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    class FakeClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, *, headers, json):
+            captured["url"] = url
+            return FakeResponse()
+
+    monkeypatch.setattr(adapters.httpx, "AsyncClient", FakeClient)
+    provider = ProviderRecord(
+        id="provider",
+        type="lmstudio",
+        name="LM Studio",
+        base_url="http://localhost:1234/v1",
+        has_api_key=False,
+        is_local=True,
+        is_external=False,
+        is_enabled=True,
+        is_default=True,
+        streaming_enabled=True,
+        models_path="/models",
+        chat_path="/chat/completions",
+        default_model_id="google/gemma-4-26b-a4b",
+        last_checked_at=None,
+        last_error=None,
+        created_at="2026-05-04 00:00:00",
+        updated_at="2026-05-04 00:00:00",
+    )
+    adapter = OpenAICompatibleAdapter(provider, None)
+
+    text = await adapter.complete_chat(
+        model_id="google/gemma-4-26b-a4b",
+        messages=[ChatMessage(role="user", content="Hello")],
+        temperature=0.7,
+    )
+
+    assert text == "ok"
+    assert captured["url"] == "http://localhost:1234/v1/chat/completions"
+    _assert_local_chat_timeout(captured["timeout"])
+
+
+@pytest.mark.anyio
+async def test_local_ollama_chat_has_no_read_timeout(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"message": {"content": "ok"}}
+
+    class FakeClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, *, json):
+            captured["url"] = url
+            return FakeResponse()
+
+    monkeypatch.setattr(adapters.httpx, "AsyncClient", FakeClient)
+    provider = ProviderRecord(
+        id="provider",
+        type="ollama",
+        name="Ollama",
+        base_url="http://localhost:11434",
+        has_api_key=False,
+        is_local=True,
+        is_external=False,
+        is_enabled=True,
+        is_default=True,
+        streaming_enabled=True,
+        models_path="/api/tags",
+        chat_path="/api/chat",
+        default_model_id="gemma",
+        last_checked_at=None,
+        last_error=None,
+        created_at="2026-05-04 00:00:00",
+        updated_at="2026-05-04 00:00:00",
+    )
+    adapter = OllamaAdapter(provider, None)
+
+    text = await adapter.complete_chat(
+        model_id="gemma",
+        messages=[ChatMessage(role="user", content="Hello")],
+        temperature=0.7,
+    )
+
+    assert text == "ok"
+    assert captured["url"] == "http://localhost:11434/api/chat"
+    _assert_local_chat_timeout(captured["timeout"])

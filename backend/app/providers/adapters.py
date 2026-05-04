@@ -130,6 +130,31 @@ def _status_code(response: object) -> int | None:
     return status_code if isinstance(status_code, int) else None
 
 
+CHAT_CONNECT_TIMEOUT_SECONDS = 10.0
+CHAT_WRITE_TIMEOUT_SECONDS = 300.0
+CHAT_POOL_TIMEOUT_SECONDS = 10.0
+EXTERNAL_CHAT_READ_TIMEOUT_SECONDS = 300.0
+
+
+def _chat_completion_timeout(provider: ProviderRecord) -> httpx.Timeout:
+    read_timeout = None if provider.is_local else EXTERNAL_CHAT_READ_TIMEOUT_SECONDS
+    return httpx.Timeout(
+        connect=CHAT_CONNECT_TIMEOUT_SECONDS,
+        read=read_timeout,
+        write=CHAT_WRITE_TIMEOUT_SECONDS,
+        pool=CHAT_POOL_TIMEOUT_SECONDS,
+    )
+
+
+def _timeout_payload(timeout: httpx.Timeout) -> dict[str, float | None]:
+    return {
+        "connect": timeout.connect,
+        "read": timeout.read,
+        "write": timeout.write,
+        "pool": timeout.pool,
+    }
+
+
 class ProviderAdapter:
     def __init__(self, provider: ProviderRecord, api_key: str | None) -> None:
         self.provider = provider
@@ -358,6 +383,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             routing_config=routing_config,
         )
         headers = self._headers()
+        timeout = _chat_completion_timeout(self.provider)
         started = time.perf_counter()
         self._log_llm(
             "chat.request",
@@ -368,10 +394,11 @@ class OpenAICompatibleAdapter(ProviderAdapter):
                 "stream": False,
                 "headers": headers,
                 "request": payload,
+                "timeout": _timeout_payload(timeout),
             },
         )
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 body = response.json()
@@ -582,6 +609,7 @@ class OllamaAdapter(ProviderAdapter):
             "stream": False,
         }
         started = time.perf_counter()
+        timeout = _chat_completion_timeout(self.provider)
         self._log_llm(
             "chat.request",
             {
@@ -590,10 +618,11 @@ class OllamaAdapter(ProviderAdapter):
                 "model_id": model_id,
                 "stream": False,
                 "request": payload,
+                "timeout": _timeout_payload(timeout),
             },
         )
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
                 body = response.json()

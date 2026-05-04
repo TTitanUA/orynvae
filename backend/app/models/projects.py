@@ -2,6 +2,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+PROJECT_METADATA_MAX_LENGTH = 1200
+PROJECT_BRIEF_MAX_LENGTH = 5000
+
 
 class ProjectSettingsRecord(BaseModel):
     genre: str | None = None
@@ -73,29 +76,29 @@ class ProjectSetupCreate(BaseModel):
     idea_text: str = Field(min_length=1, max_length=12000)
     description: str | None = Field(default=None, max_length=1200)
     synopsis: str | None = Field(default=None, max_length=5000)
-    genre: str | None = Field(default=None, max_length=120)
-    tone: str | None = Field(default=None, max_length=120)
-    setting: str | None = Field(default=None, max_length=240)
-    format: str | None = Field(default=None, max_length=120)
-    central_conflict: str | None = Field(default=None, max_length=600)
+    genre: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    tone: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    setting: str | None = Field(default=None, max_length=PROJECT_BRIEF_MAX_LENGTH)
+    format: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    central_conflict: str | None = Field(default=None, max_length=PROJECT_BRIEF_MAX_LENGTH)
     themes: list[str] = Field(default_factory=list)
     directions: list[str] = Field(default_factory=list)
     selected_direction: str | None = Field(default=None, max_length=1200)
-    target_length: str | None = Field(default=None, max_length=120)
-    point_of_view: str | None = Field(default=None, max_length=120)
+    target_length: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    point_of_view: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
     provider_id: str | None = None
     model_id: str | None = None
 
 
 class WorkspaceSettings(BaseModel):
-    genre: str | None = Field(default=None, max_length=120)
-    tone: str | None = Field(default=None, max_length=120)
-    setting: str | None = Field(default=None, max_length=240)
-    format: str | None = Field(default=None, max_length=120)
-    central_conflict: str | None = Field(default=None, max_length=600)
+    genre: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    tone: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    setting: str | None = Field(default=None, max_length=PROJECT_BRIEF_MAX_LENGTH)
+    format: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    central_conflict: str | None = Field(default=None, max_length=PROJECT_BRIEF_MAX_LENGTH)
     themes: list[str] = Field(default_factory=list)
-    target_length: str | None = Field(default=None, max_length=120)
-    point_of_view: str | None = Field(default=None, max_length=120)
+    target_length: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
+    point_of_view: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
 
 
 class IdeaLabRecord(BaseModel):
