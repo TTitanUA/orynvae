@@ -1,8 +1,0 @@
-- [x] Inspect current backend/frontend implementation for Stage 7 gaps.
-- [x] Polish the end-to-end MVP author workflow UI.
-- [x] Verify provider selection, health/config validation, and streaming behavior in code paths.
-- [x] Add or tighten minimal backend tests for provider layer, CRUD, migrations, and AI Project Setup.
-- [x] Add or tighten minimal frontend tests for provider setup, project creation, and editor actions.
-- [x] Run automated backend and frontend verification.
-- [x] Run the local dev environment and manually test the relevant frontend flow in Chrome DevTools.
-- [x] Confirm git status and update this checklist to reflect completed work.

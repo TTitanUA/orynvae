@@ -1,7 +1,0 @@
-- [x] Inspect existing project/workspace/editor backend and frontend patterns.
-- [x] Add backend canon facts, timeline, and continuity-check storage/API support.
-- [x] Add frontend API/types for canon facts, timeline events, and fact checks.
-- [x] Build canon/timeline UI in the project workspace with manual fact entry, links, and review flow.
-- [x] Add or update focused backend and frontend tests.
-- [x] Run automated backend/frontend verification.
-- [x] Run the local dev launcher and manually verify the frontend in Chrome DevTools.
