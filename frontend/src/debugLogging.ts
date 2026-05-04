@@ -3,7 +3,7 @@ import {
   postDebugLogs,
   type DebugLogCategory,
   type DebugLogEntry,
-} from "./api/debugLogs";
+} from "./entities/debug-log";
 
 let initialized = false;
 let enabled = false;

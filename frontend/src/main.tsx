@@ -2,8 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { AppProviders } from "./app/providers/app-providers";
 import { initializeFrontendDebugLogging } from "./debugLogging";
-import "./styles/global.css";
+import "./app/styles/global.css";
 
 const rootElement = document.getElementById("root");
 
@@ -14,7 +15,9 @@ if (!rootElement) {
 function renderApp(): void {
   createRoot(rootElement!).render(
     <StrictMode>
-      <App />
+      <AppProviders>
+        <App />
+      </AppProviders>
     </StrictMode>,
   );
 }
