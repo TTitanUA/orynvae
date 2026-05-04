@@ -78,6 +78,7 @@ def _project_from_row(
         created_at=project_row["created_at"],
         updated_at=project_row["updated_at"],
         archived_at=project_row["archived_at"],
+        is_hidden=_bool(project_row["is_hidden"]),
         settings=_settings_from_row(settings_row),
     )
 
@@ -89,8 +90,13 @@ def _get_settings(connection: sqlite3.Connection, project_id: str) -> sqlite3.Ro
     ).fetchone()
 
 
-def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
-    where = "" if include_archived else "WHERE archived_at IS NULL"
+def list_projects(*, include_archived: bool = False, include_hidden: bool = False) -> list[ProjectRecord]:
+    conditions: list[str] = []
+    if not include_archived:
+        conditions.append("archived_at IS NULL")
+    if not include_hidden:
+        conditions.append("is_hidden = 0")
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     with _connection() as connection:
         rows = connection.execute(
             f"""
@@ -106,10 +112,11 @@ def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
         ]
 
 
-def get_project(project_id: str) -> ProjectRecord | None:
+def get_project(project_id: str, *, include_hidden: bool = True) -> ProjectRecord | None:
     with _connection() as connection:
+        hidden_clause = "" if include_hidden else " AND is_hidden = 0"
         row = connection.execute(
-            "SELECT * FROM projects WHERE id = ?",
+            f"SELECT * FROM projects WHERE id = ?{hidden_clause}",
             (project_id,),
         ).fetchone()
         if row is None:
@@ -117,8 +124,8 @@ def get_project(project_id: str) -> ProjectRecord | None:
         return _project_from_row(row, _get_settings(connection, project_id))
 
 
-def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord | None:
-    project = get_project(project_id)
+def get_project_workspace(project_id: str, *, include_hidden: bool = True) -> ProjectWorkspaceRecord | None:
+    project = get_project(project_id, include_hidden=include_hidden)
     if project is None:
         return None
 
@@ -134,8 +141,8 @@ def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord | None:
         )
 
 
-def get_chapter_editor(project_id: str) -> ChapterEditorRecordSet | None:
-    project = get_project(project_id)
+def get_chapter_editor(project_id: str, *, include_hidden: bool = True) -> ChapterEditorRecordSet | None:
+    project = get_project(project_id, include_hidden=include_hidden)
     if project is None:
         return None
 
@@ -186,6 +193,8 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
                 payload.model_id,
             ),
         )
+        if payload.is_hidden:
+            connection.execute("UPDATE projects SET is_hidden = 1 WHERE id = ?", (project_id,))
         connection.commit()
 
     project = get_project(project_id)
@@ -218,6 +227,8 @@ def create_project_from_setup(payload: ProjectSetupCreate) -> ProjectRecord:
                 payload.model_id,
             ),
         )
+        if payload.is_hidden:
+            connection.execute("UPDATE projects SET is_hidden = 1 WHERE id = ?", (project_id,))
         connection.execute(
             """
             INSERT INTO project_settings (
@@ -309,6 +320,7 @@ def update_project_workspace(
         provider_id=payload.provider_id,
         model_id=payload.model_id,
         status=current.status,
+        is_hidden=payload.is_hidden if payload.is_hidden is not None else current.is_hidden,
     )
 
     with _connection() as connection:
@@ -320,6 +332,7 @@ def update_project_workspace(
                 synopsis = ?,
                 provider_id = ?,
                 model_id = ?,
+                is_hidden = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
@@ -329,6 +342,7 @@ def update_project_workspace(
                 _clean(update_values.synopsis),
                 update_values.provider_id,
                 update_values.model_id,
+                int(bool(update_values.is_hidden)),
                 project_id,
             ),
         )

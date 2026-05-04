@@ -28,6 +28,7 @@ class ProjectRecord(BaseModel):
     created_at: str
     updated_at: str
     archived_at: str | None
+    is_hidden: bool = False
     settings: ProjectSettingsRecord | None = None
 
 
@@ -37,6 +38,7 @@ class ProjectCreate(BaseModel):
     synopsis: str | None = Field(default=None, max_length=5000)
     provider_id: str | None = None
     model_id: str | None = None
+    is_hidden: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -46,6 +48,7 @@ class ProjectUpdate(BaseModel):
     provider_id: str | None = None
     model_id: str | None = None
     status: str | None = Field(default=None, max_length=40)
+    is_hidden: bool | None = None
 
 
 class ProjectSetupAnalysisRequest(BaseModel):
@@ -88,6 +91,7 @@ class ProjectSetupCreate(BaseModel):
     point_of_view: str | None = Field(default=None, max_length=PROJECT_METADATA_MAX_LENGTH)
     provider_id: str | None = None
     model_id: str | None = None
+    is_hidden: bool = False
 
 
 class WorkspaceSettings(BaseModel):
@@ -227,6 +231,7 @@ class ProjectWorkspaceUpdate(BaseModel):
     synopsis: str | None = Field(default=None, max_length=5000)
     provider_id: str | None = None
     model_id: str | None = None
+    is_hidden: bool | None = None
     settings: WorkspaceSettings = Field(default_factory=WorkspaceSettings)
     idea_lab: IdeaLabRecord = Field(default_factory=IdeaLabRecord)
     world_bible: WorldBibleRecord = Field(default_factory=WorldBibleRecord)

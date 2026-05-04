@@ -18,6 +18,7 @@ export type Project = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  is_hidden: boolean;
   settings: ProjectSettings | null;
 };
 
@@ -61,6 +62,7 @@ export type ProjectSetupCreatePayload = {
   point_of_view?: string;
   provider_id?: string;
   model_id?: string;
+  is_hidden?: boolean;
 };
 
 export type WorkspaceSettings = {
@@ -200,6 +202,7 @@ export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
   synopsis?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
+  is_hidden?: boolean;
 };
 
 export type ChapterEditorState = {

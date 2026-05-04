@@ -19,6 +19,7 @@ function project(overrides: Partial<Project>): Project {
     created_at: "2026-05-02T00:00:00",
     updated_at: "2026-05-02T00:00:00",
     archived_at: null,
+    is_hidden: false,
     settings: null,
     ...overrides,
   };

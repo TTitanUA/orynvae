@@ -270,6 +270,36 @@ def test_project_workspace_round_trip(tmp_path, monkeypatch):
     assert body["plot_board"]["chapters"][0]["status"] == "planned"
 
 
+def test_hidden_projects_require_include_hidden(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+
+    visible = client.post("/api/projects", json={"name": "Visible project"}).json()
+    hidden = client.post("/api/projects", json={"name": "Hidden project", "is_hidden": True}).json()
+
+    listed = client.get("/api/projects")
+    assert listed.status_code == 200
+    assert [project["id"] for project in listed.json()] == [visible["id"]]
+
+    privacy = client.put("/api/settings/privacy", json={"show_hidden_items": True})
+    assert privacy.status_code == 200
+
+    listed_with_hidden = client.get("/api/projects")
+    assert listed_with_hidden.status_code == 200
+    assert {project["id"] for project in listed_with_hidden.json()} == {visible["id"], hidden["id"]}
+
+    privacy = client.put("/api/settings/privacy", json={"show_hidden_items": False})
+    assert privacy.status_code == 200
+
+    hidden_workspace = client.get(f"/api/projects/{hidden['id']}/workspace")
+    assert hidden_workspace.status_code == 404
+
+    client.put("/api/settings/privacy", json={"show_hidden_items": True})
+    hidden_workspace_visible = client.get(f"/api/projects/{hidden['id']}/workspace")
+    assert hidden_workspace_visible.status_code == 200
+    assert hidden_workspace_visible.json()["project"]["is_hidden"] is True
+
+
 def test_chapter_editor_round_trip_and_ai_assist(tmp_path, monkeypatch):
     monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(projects_api, "create_adapter", lambda provider, api_key: FakeChapterAdapter())

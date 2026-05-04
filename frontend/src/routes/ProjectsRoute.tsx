@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, FolderKanban, Plus, Shapes } from "lucide-react";
+import { BookOpen, EyeOff, FolderKanban, Plus, Shapes } from "lucide-react";
 
 import { fetchProjects } from "../api/projects";
 import { AppShell } from "../components/templates/AppShell";
+import { useShowHiddenItems } from "../privacySettings";
 import type { Project } from "../types/projects";
 import "./ProjectsRoute.css";
 
@@ -12,6 +13,7 @@ function projectField(value: string | null | undefined): string {
 }
 
 export function ProjectsRoute() {
+  const [showHiddenItems] = useShowHiddenItems();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -45,7 +47,7 @@ export function ProjectsRoute() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [showHiddenItems]);
 
   return (
     <AppShell>
@@ -88,10 +90,15 @@ export function ProjectsRoute() {
                 <div className="project-card__title">
                   <Shapes size={18} aria-hidden="true" />
                   <h2>
-                    <Link to={`/projects/${encodeURIComponent(project.id)}/workspace`}>
+                    <Link to={`/projects/${encodeURIComponent(project.id)}/workspace/overview`}>
                       {project.name}
                     </Link>
                   </h2>
+                  {project.is_hidden && (
+                    <span className="project-card__hidden" title="Скрытый проект">
+                      <EyeOff size={14} aria-hidden="true" />
+                    </span>
+                  )}
                 </div>
                 <dl className="project-card__meta">
                   <div>

@@ -119,7 +119,9 @@ export async function createProjectFromSetup(
   });
 }
 
-export async function fetchProjectWorkspace(projectId: string): Promise<ProjectWorkspace> {
+export async function fetchProjectWorkspace(
+  projectId: string,
+): Promise<ProjectWorkspace> {
   return requestJson<ProjectWorkspace>(`/api/projects/${projectId}/workspace`);
 }
 

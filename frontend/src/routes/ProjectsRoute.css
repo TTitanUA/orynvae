@@ -98,7 +98,7 @@
 
 .project-card__title {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.5rem;
   align-items: center;
 }
@@ -123,6 +123,18 @@
 
 .project-card h2 a:hover {
   text-decoration-color: currentColor;
+}
+
+.project-card__hidden {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
 }
 
 .project-card__meta {

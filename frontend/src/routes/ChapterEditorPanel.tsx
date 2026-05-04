@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBeforeUnload, useBlocker } from "react-router-dom";
 import {
   Bot,
   Check,
@@ -25,6 +26,7 @@ import type {
   ChapterEditorState,
   SceneEditor,
 } from "../types/projects";
+import { UnsavedChangesDialog } from "../components/molecules/UnsavedChangesDialog";
 import "./ChapterEditorPanel.css";
 
 type ChapterEditorPanelProps = {
@@ -60,8 +62,13 @@ function initialAiProviderFor(providers: Provider[], providerId: string | null):
   );
 }
 
+function editorFingerprint(editor: ChapterEditorState | undefined): string {
+  return JSON.stringify(editor?.chapters || []);
+}
+
 export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelProps) {
   const [editor, setEditor] = useState<ChapterEditorState>();
+  const [savedEditor, setSavedEditor] = useState<ChapterEditorState>();
   const [selectedChapterId, setSelectedChapterId] = useState<string>();
   const [selectedSceneId, setSelectedSceneId] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -77,6 +84,20 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
   const [aiProviderId, setAiProviderId] = useState("");
   const [aiModelId, setAiModelId] = useState("");
   const abortRef = useRef<AbortController>();
+  const isDirty = Boolean(
+    editor && savedEditor && editorFingerprint(editor) !== editorFingerprint(savedEditor),
+  );
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    return isDirty && currentLocation.pathname !== nextLocation.pathname;
+  });
+
+  useBeforeUnload((event) => {
+    if (!isDirty) {
+      return;
+    }
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   useEffect(() => {
     let isCurrent = true;
@@ -86,6 +107,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           return;
         }
         setEditor(nextEditor);
+        setSavedEditor(nextEditor);
         setSelectedChapterId(nextEditor.chapters[0]?.id || undefined);
         const provider = initialAiProviderFor(providers, nextEditor.project.provider_id);
         setAiProviderId(provider?.id || "");
@@ -254,6 +276,7 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
     try {
       const saved = await updateChapterEditor(projectId, { chapters: editor.chapters });
       setEditor(saved);
+      setSavedEditor(saved);
       setNotice("Chapter draft saved.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Chapter draft could not be saved.");
@@ -299,6 +322,13 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
       }
     } finally {
       setAiRunning(false);
+    }
+  }
+
+  function discardChangesAndLeave() {
+    setEditor(savedEditor);
+    if (blocker.state === "blocked") {
+      blocker.proceed();
     }
   }
 
@@ -595,6 +625,10 @@ export function ChapterEditorPanel({ projectId, providers }: ChapterEditorPanelP
           )}
         </aside>
       </div>
+
+      {blocker.state === "blocked" && (
+        <UnsavedChangesDialog onLeave={discardChangesAndLeave} onStay={() => blocker.reset()} />
+      )}
     </section>
   );
 }

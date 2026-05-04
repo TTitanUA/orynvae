@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, NavLink, useBeforeUnload, useBlocker } from "react-router-dom";
 import {
   BookMarked,
   Boxes,
@@ -26,7 +26,9 @@ import {
 } from "../api/projects";
 import { allowedModels, defaultModelFor, enabledProviders, fetchProviders } from "../api/providers";
 import { AppShell } from "../components/templates/AppShell";
+import { UnsavedChangesDialog } from "../components/molecules/UnsavedChangesDialog";
 import { ChapterEditorPanel } from "./ChapterEditorPanel";
+import { useShowHiddenItems } from "../privacySettings";
 import type { Provider } from "../types/providers";
 import type {
   ChapterPlan,
@@ -56,6 +58,8 @@ const tabs: Array<{ id: WorkspaceTab; label: string; icon: typeof BookMarked }> 
   { id: "canon", label: "Canon", icon: ShieldCheck },
   { id: "editor", label: "Editor", icon: PenLine },
 ];
+
+const tabIds = new Set<string>(tabs.map((tab) => tab.id));
 
 function splitLines(value: string): string[] {
   return value
@@ -113,14 +117,77 @@ function removeItem<T>(items: T[], index: number): T[] {
   return items.filter((_, itemIndex) => itemIndex !== index);
 }
 
+function sectionFromValue(value: string): WorkspaceTab | undefined {
+  return tabIds.has(value) ? (value as WorkspaceTab) : undefined;
+}
+
+function workspaceSectionPath(projectId: string, section: WorkspaceTab): string {
+  return `/projects/${encodeURIComponent(projectId)}/workspace/${section}`;
+}
+
+function workspacePayload(workspace: ProjectWorkspace) {
+  return {
+    name: workspace.project.name,
+    description: workspace.project.description,
+    synopsis: workspace.project.synopsis,
+    provider_id: workspace.project.provider_id,
+    model_id: workspace.project.model_id,
+    is_hidden: workspace.project.is_hidden,
+    settings: workspace.settings,
+    idea_lab: workspace.idea_lab,
+    world_bible: workspace.world_bible,
+    characters: workspace.characters,
+    plot_board: workspace.plot_board,
+    canon: workspace.canon,
+  };
+}
+
+function sectionFingerprint(workspace: ProjectWorkspace | undefined, section: WorkspaceTab): string {
+  if (!workspace || section === "editor") {
+    return "";
+  }
+
+  const values: Record<Exclude<WorkspaceTab, "editor">, unknown> = {
+    overview: {
+      project: {
+        name: workspace.project.name,
+        description: workspace.project.description,
+        synopsis: workspace.project.synopsis,
+        provider_id: workspace.project.provider_id,
+        model_id: workspace.project.model_id,
+        is_hidden: workspace.project.is_hidden,
+      },
+      settings: workspace.settings,
+    },
+    ideas: {
+      idea_lab: workspace.idea_lab,
+      themes: workspace.settings.themes,
+    },
+    world: workspace.world_bible,
+    characters: workspace.characters,
+    plot: workspace.plot_board,
+    canon: workspace.canon,
+  };
+
+  return JSON.stringify(values[section as Exclude<WorkspaceTab, "editor">]);
+}
+
+function sectionSavedMessage(section: WorkspaceTab): string {
+  const tab = tabs.find((item) => item.id === section);
+  return `${tab?.label || "Section"} saved.`;
+}
+
 type ProjectWorkspaceRouteProps = {
   projectId: string;
+  section: string;
 };
 
-export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps) {
+export function ProjectWorkspaceRoute({ projectId, section }: ProjectWorkspaceRouteProps) {
+  const activeSection = sectionFromValue(section);
+  const [showHiddenItems] = useShowHiddenItems();
   const [workspace, setWorkspace] = useState<ProjectWorkspace>();
+  const [savedWorkspace, setSavedWorkspace] = useState<ProjectWorkspace>();
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [checkingCanon, setCheckingCanon] = useState(false);
@@ -128,6 +195,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
   const [notice, setNotice] = useState<string>();
   const [continuityText, setContinuityText] = useState("");
   const [continuityCheck, setContinuityCheck] = useState<ContinuityCheck>();
+  const currentSection = activeSection || "overview";
 
   const providerId = workspace?.project.provider_id;
   const selectedProvider = useMemo(
@@ -142,6 +210,20 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
       selectedProvider &&
       !selectedAllowedModels.some((model) => model.model_id === currentProjectModelId),
   );
+  const currentFingerprint = sectionFingerprint(workspace, currentSection);
+  const savedFingerprint = sectionFingerprint(savedWorkspace, currentSection);
+  const isDirty = Boolean(workspace && savedWorkspace && currentFingerprint !== savedFingerprint);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    return isDirty && currentLocation.pathname !== nextLocation.pathname;
+  });
+
+  useBeforeUnload((event) => {
+    if (!isDirty) {
+      return;
+    }
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   useEffect(() => {
     let isCurrent = true;
@@ -152,10 +234,14 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           return;
         }
         setWorkspace(nextWorkspace);
+        setSavedWorkspace(nextWorkspace);
         setProviders(nextProviders);
+        setError(undefined);
       })
       .catch((reason) => {
         if (isCurrent) {
+          setWorkspace(undefined);
+          setSavedWorkspace(undefined);
           setError(reason instanceof Error ? reason.message : "Workspace could not be loaded.");
         }
       })
@@ -168,7 +254,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     return () => {
       isCurrent = false;
     };
-  }, [projectId]);
+  }, [projectId, showHiddenItems]);
 
   function updateProject(patch: Partial<ProjectWorkspace["project"]>) {
     setWorkspace((current) =>
@@ -222,7 +308,7 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     }
   }
 
-  async function saveWorkspace() {
+  async function saveCurrentSection() {
     if (!workspace) {
       return;
     }
@@ -231,26 +317,19 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     setNotice(undefined);
 
     try {
-      const saved = await updateProjectWorkspace(projectId, {
-        name: workspace.project.name,
-        description: workspace.project.description,
-        synopsis: workspace.project.synopsis,
-        provider_id: workspace.project.provider_id,
-        model_id: workspace.project.model_id,
-        settings: workspace.settings,
-        idea_lab: workspace.idea_lab,
-        world_bible: workspace.world_bible,
-        characters: workspace.characters,
-        plot_board: workspace.plot_board,
-        canon: workspace.canon,
-      });
+      const saved = await updateProjectWorkspace(projectId, workspacePayload(workspace));
       setWorkspace(saved);
-      setNotice("Workspace saved.");
+      setSavedWorkspace(saved);
+      setNotice(sectionSavedMessage(currentSection));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Workspace could not be saved.");
+      setError(reason instanceof Error ? reason.message : "Section could not be saved.");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (!activeSection) {
+    return <Navigate replace to={workspaceSectionPath(projectId, "overview")} />;
   }
 
   if (loading) {
@@ -277,6 +356,13 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     });
   }
 
+  function discardChangesAndLeave() {
+    setWorkspace(savedWorkspace);
+    if (blocker.state === "blocked") {
+      blocker.proceed();
+    }
+  }
+
   return (
     <AppShell>
       <div className="workspace-route">
@@ -289,15 +375,6 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
             <h1>{workspace.project.name || "Untitled project"}</h1>
             <p>{workspace.project.description || "Shape the project history and canon base."}</p>
           </div>
-          <button
-            className="workspace-route__save"
-            disabled={saving || !workspace.project.name.trim()}
-            onClick={() => void saveWorkspace()}
-            type="button"
-          >
-            <Save size={16} aria-hidden="true" />
-            {saving ? "Saving" : "Save"}
-          </button>
         </header>
 
         {(error || notice) && (
@@ -306,29 +383,37 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </div>
         )}
 
-        <div className="workspace-tabs" role="tablist" aria-label="Workspace sections">
+        <nav className="workspace-nav" aria-label="Workspace pages">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button
-                aria-selected={activeTab === tab.id}
+              <NavLink
+                aria-label={tab.label}
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                role="tab"
-                type="button"
+                to={workspaceSectionPath(projectId, tab.id)}
               >
                 <Icon size={16} aria-hidden="true" />
                 {tab.label}
-              </button>
+              </NavLink>
             );
           })}
-        </div>
+        </nav>
 
-        {activeTab === "overview" && (
+        {currentSection === "overview" && (
           <section className="workspace-panel">
             <div className="workspace-panel__heading">
-              <BookMarked size={18} aria-hidden="true" />
-              <h2>Project Overview</h2>
+              <span>
+                <BookMarked size={18} aria-hidden="true" />
+                <h2>Project Overview</h2>
+              </span>
+              <button
+                disabled={saving || !workspace.project.name.trim() || !isDirty}
+                onClick={() => void saveCurrentSection()}
+                type="button"
+              >
+                <Save size={16} aria-hidden="true" />
+                {saving ? "Saving" : "Save"}
+              </button>
             </div>
             <div className="workspace-grid is-two">
               <label>
@@ -386,6 +471,17 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                   value={text(workspace.settings.target_length)}
                   onChange={(event) => updateSettings({ target_length: event.target.value })}
                 />
+              </label>
+              <label>
+                Visibility
+                <select
+                  name="workspace-visibility"
+                  value={workspace.project.is_hidden ? "hidden" : "visible"}
+                  onChange={(event) => updateProject({ is_hidden: event.target.value === "hidden" })}
+                >
+                  <option value="visible">Visible project</option>
+                  <option value="hidden">Hidden project</option>
+                </select>
               </label>
               <label>
                 Provider
@@ -463,11 +559,21 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "ideas" && (
+        {currentSection === "ideas" && (
           <section className="workspace-panel">
             <div className="workspace-panel__heading">
-              <Brain size={18} aria-hidden="true" />
-              <h2>Idea Lab</h2>
+              <span>
+                <Brain size={18} aria-hidden="true" />
+                <h2>Idea Lab</h2>
+              </span>
+              <button
+                disabled={saving || !isDirty}
+                onClick={() => void saveCurrentSection()}
+                type="button"
+              >
+                <Save size={16} aria-hidden="true" />
+                {saving ? "Saving" : "Save"}
+              </button>
             </div>
             <label>
               Seed idea
@@ -537,11 +643,21 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "world" && (
+        {currentSection === "world" && (
           <section className="workspace-panel">
             <div className="workspace-panel__heading">
-              <Map size={18} aria-hidden="true" />
-              <h2>World Bible</h2>
+              <span>
+                <Map size={18} aria-hidden="true" />
+                <h2>World Bible</h2>
+              </span>
+              <button
+                disabled={saving || !isDirty}
+                onClick={() => void saveCurrentSection()}
+                type="button"
+              >
+                <Save size={16} aria-hidden="true" />
+                {saving ? "Saving" : "Save"}
+              </button>
             </div>
             <WorldSection
               label="World rules"
@@ -564,23 +680,35 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "characters" && (
+        {currentSection === "characters" && (
           <section className="workspace-panel">
             <div className="workspace-panel__heading">
-              <UsersRound size={18} aria-hidden="true" />
-              <h2>Characters</h2>
-              <button
-                type="button"
-                onClick={() =>
-                  setWorkspace({
-                    ...workspace,
-                    characters: [...workspace.characters, { name: "New character", role: "" }],
-                  })
-                }
-              >
-                <CirclePlus size={16} aria-hidden="true" />
-                Add
-              </button>
+              <span>
+                <UsersRound size={18} aria-hidden="true" />
+                <h2>Characters</h2>
+              </span>
+              <div className="workspace-panel__actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWorkspace({
+                      ...workspace,
+                      characters: [...workspace.characters, { name: "New character", role: "" }],
+                    })
+                  }
+                >
+                  <CirclePlus size={16} aria-hidden="true" />
+                  Add
+                </button>
+                <button
+                  disabled={saving || !isDirty}
+                  onClick={() => void saveCurrentSection()}
+                  type="button"
+                >
+                  <Save size={16} aria-hidden="true" />
+                  {saving ? "Saving" : "Save"}
+                </button>
+              </div>
             </div>
             <div className="workspace-card-grid">
               {workspace.characters.map((character, index) => (
@@ -606,11 +734,21 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "plot" && (
+        {currentSection === "plot" && (
           <section className="workspace-panel">
             <div className="workspace-panel__heading">
-              <Boxes size={18} aria-hidden="true" />
-              <h2>Plot Board</h2>
+              <span>
+                <Boxes size={18} aria-hidden="true" />
+                <h2>Plot Board</h2>
+              </span>
+              <button
+                disabled={saving || !isDirty}
+                onClick={() => void saveCurrentSection()}
+                type="button"
+              >
+                <Save size={16} aria-hidden="true" />
+                {saving ? "Saving" : "Save"}
+              </button>
             </div>
             <PlotSection
               arcs={workspace.plot_board.arcs}
@@ -625,22 +763,45 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
           </section>
         )}
 
-        {activeTab === "canon" && (
-          <CanonPanel
-            canon={workspace.canon}
-            characters={workspace.characters}
-            chapters={workspace.plot_board.chapters}
-            checking={checkingCanon}
-            continuityCheck={continuityCheck}
-            continuityText={continuityText}
-            onCanonChange={updateCanon}
-            onContinuityTextChange={setContinuityText}
-            onRunContinuityCheck={() => void runContinuityCheck()}
-          />
+        {currentSection === "canon" && (
+          <section className="workspace-panel">
+            <div className="workspace-panel__heading">
+              <span>
+                <ShieldCheck size={18} aria-hidden="true" />
+                <h2>Canon & Timeline</h2>
+              </span>
+              <button
+                disabled={saving || !isDirty}
+                onClick={() => void saveCurrentSection()}
+                type="button"
+              >
+                <Save size={16} aria-hidden="true" />
+                {saving ? "Saving" : "Save"}
+              </button>
+            </div>
+            <CanonPanel
+              canon={workspace.canon}
+              characters={workspace.characters}
+              chapters={workspace.plot_board.chapters}
+              checking={checkingCanon}
+              continuityCheck={continuityCheck}
+              continuityText={continuityText}
+              onCanonChange={updateCanon}
+              onContinuityTextChange={setContinuityText}
+              onRunContinuityCheck={() => void runContinuityCheck()}
+            />
+          </section>
         )}
 
-        {activeTab === "editor" && (
+        {currentSection === "editor" && (
           <ChapterEditorPanel projectId={projectId} providers={activeProviders} />
+        )}
+
+        {blocker.state === "blocked" && (
+          <UnsavedChangesDialog
+            onLeave={discardChangesAndLeave}
+            onStay={() => blocker.reset()}
+          />
         )}
       </div>
     </AppShell>
@@ -713,12 +874,7 @@ function CanonPanel({
   }
 
   return (
-    <section className="workspace-panel">
-      <div className="workspace-panel__heading">
-        <ShieldCheck size={18} aria-hidden="true" />
-        <h2>Canon & Timeline</h2>
-      </div>
-
+    <>
       <section className="workspace-subsection">
         <div className="workspace-subsection__header">
           <h3>Canon Facts</h3>
@@ -856,7 +1012,7 @@ function CanonPanel({
           </div>
         )}
       </section>
-    </section>
+    </>
   );
 }
 

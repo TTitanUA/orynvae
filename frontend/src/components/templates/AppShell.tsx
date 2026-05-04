@@ -20,9 +20,7 @@ export function AppShell({ children }: AppShellProps) {
             Обзор
           </NavLink>
           <NavLink to="/projects">Проекты</NavLink>
-          <NavLink to="/settings/providers">
-            AI-провайдеры
-          </NavLink>
+          <NavLink to="/settings">Настройки</NavLink>
         </nav>
       </aside>
       <main className="app-shell__main">{children}</main>

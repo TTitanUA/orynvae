@@ -29,14 +29,14 @@ from app.models.projects import (
 )
 from app.models.providers import ChatMessage
 from app.providers.adapters import create_adapter
-from app.services import project_store, provider_store
+from app.services import project_store, provider_store, settings_store
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.get("", response_model=list[ProjectRecord])
 def list_projects() -> list[ProjectRecord]:
-    return project_store.list_projects()
+    return project_store.list_projects(include_hidden=settings_store.get_privacy_settings().show_hidden_items)
 
 
 @router.post("", response_model=ProjectRecord, status_code=status.HTTP_201_CREATED)
@@ -47,7 +47,10 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
 
 @router.get("/{project_id}", response_model=ProjectRecord)
 def get_project(project_id: str) -> ProjectRecord:
-    project = project_store.get_project(project_id)
+    project = project_store.get_project(
+        project_id,
+        include_hidden=settings_store.get_privacy_settings().show_hidden_items,
+    )
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
@@ -64,7 +67,10 @@ def update_project(project_id: str, payload: ProjectUpdate) -> ProjectRecord:
 
 @router.get("/{project_id}/workspace", response_model=ProjectWorkspaceRecord)
 def get_project_workspace(project_id: str) -> ProjectWorkspaceRecord:
-    workspace = project_store.get_project_workspace(project_id)
+    workspace = project_store.get_project_workspace(
+        project_id,
+        include_hidden=settings_store.get_privacy_settings().show_hidden_items,
+    )
     if workspace is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return workspace
@@ -84,7 +90,10 @@ def update_project_workspace(
 
 @router.get("/{project_id}/chapter-editor", response_model=ChapterEditorRecordSet)
 def get_chapter_editor(project_id: str) -> ChapterEditorRecordSet:
-    editor = project_store.get_chapter_editor(project_id)
+    editor = project_store.get_chapter_editor(
+        project_id,
+        include_hidden=settings_store.get_privacy_settings().show_hidden_items,
+    )
     if editor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return editor
