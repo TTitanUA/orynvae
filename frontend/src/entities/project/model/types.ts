@@ -1,3 +1,12 @@
+export type Project = {
+  id: string;
+  name: string;
+  is_hidden: boolean;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
 export type ProjectSettings = {
   genre: string | null;
   tone: string | null;
@@ -7,18 +16,12 @@ export type ProjectSettings = {
   settings: Record<string, unknown>;
 };
 
-export type Project = {
-  id: string;
-  name: string;
+export type ProjectWorkspaceProject = Project & {
   description: string | null;
   synopsis: string | null;
   provider_id: string | null;
   model_id: string | null;
   status: string;
-  created_at: string;
-  updated_at: string;
-  archived_at: string | null;
-  is_hidden: boolean;
   settings: ProjectSettings | null;
 };
 
@@ -189,7 +192,7 @@ export type CanonWorkspace = {
 };
 
 export type ProjectWorkspace = {
-  project: Project;
+  project: ProjectWorkspaceProject;
   settings: WorkspaceSettings;
   idea_lab: IdeaLab;
   world_bible: WorldBible;
@@ -208,7 +211,7 @@ export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
 };
 
 export type ChapterEditorState = {
-  project: Project;
+  project: ProjectWorkspaceProject;
   settings: WorkspaceSettings;
   characters: CharacterWorkspace[];
   arcs: PlotArcWorkspace[];

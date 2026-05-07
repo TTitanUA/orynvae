@@ -19,6 +19,10 @@ export async function fetchProjects(): Promise<Project[]> {
   return requestJson<Project[]>("/api/projects");
 }
 
+export async function fetchProject(projectId: string): Promise<Project> {
+  return requestJson<Project>(`/api/projects/${projectId}`);
+}
+
 export async function analyzeProjectSetup(
   payload: ProjectSetupAnalysisPayload,
 ): Promise<ProjectSetupAnalysis> {

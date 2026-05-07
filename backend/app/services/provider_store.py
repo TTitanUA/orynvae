@@ -6,7 +6,6 @@ import sqlite3
 from uuid import uuid4
 
 from app.models.providers import (
-    ProjectModelSelection,
     ProviderCreate,
     ProviderModelPreferencesUpdate,
     ProviderModelRecord,
@@ -432,21 +431,6 @@ def set_default_provider(provider_id: str) -> ProviderRecord | None:
 
     updated = get_provider(provider_id)
     return updated.provider if updated else None
-
-
-def set_project_model(selection: ProjectModelSelection) -> ProjectModelSelection | None:
-    _require_allowed_default(selection.provider_id, selection.model_id)
-    with _connection() as connection:
-        cursor = connection.execute(
-            """
-            UPDATE projects
-            SET provider_id = ?, model_id = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            """,
-            (selection.provider_id, selection.model_id, selection.project_id),
-        )
-        connection.commit()
-    return selection if cursor.rowcount else None
 
 
 def _require_allowed_default(provider_id: str, model_id: str) -> None:

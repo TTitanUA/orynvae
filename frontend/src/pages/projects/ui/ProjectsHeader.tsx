@@ -1,13 +1,13 @@
-import { BookOpen, FolderKanban, Plus } from "lucide-react";
+import { EyeOff, FolderKanban, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import "./ProjectsHeader.css";
 
 type ProjectsHeaderProps = {
-  activeProjects: number;
+  hiddenProjects: number;
   totalProjects: number;
 };
 
-export function ProjectsHeader({ activeProjects, totalProjects }: ProjectsHeaderProps) {
+export function ProjectsHeader({ hiddenProjects, totalProjects }: ProjectsHeaderProps) {
   return (
     <header className="projects-header">
       <div>
@@ -21,8 +21,8 @@ export function ProjectsHeader({ activeProjects, totalProjects }: ProjectsHeader
             {totalProjects}
           </span>
           <span>
-            <BookOpen size={16} aria-hidden="true" />
-            {activeProjects}
+            <EyeOff size={16} aria-hidden="true" />
+            {hiddenProjects}
           </span>
         </div>
         <Link className="projects-header__create-link" to="/projects/create">

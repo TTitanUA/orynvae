@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 
 from app.models.providers import (
-    ProjectModelSelection,
     ProviderChatRequest,
     ProviderCreate,
     ProviderDefaults,
@@ -160,20 +159,6 @@ def set_default_provider(provider_id: str) -> ProviderRecord:
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
     return provider
-
-
-@router.post("/project-model", response_model=ProjectModelSelection)
-def set_project_model(payload: ProjectModelSelection) -> ProjectModelSelection:
-    try:
-        selection = provider_store.set_project_model(payload)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-    if selection is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return selection
 
 
 @router.post("/{provider_id}/chat")

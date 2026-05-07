@@ -235,12 +235,6 @@ class ProviderChatRequest(BaseModel):
     stream: bool = True
 
 
-class ProjectModelSelection(BaseModel):
-    project_id: str
-    provider_id: str
-    model_id: str
-
-
 class ProviderReference(BaseModel):
     provider_id: str
     model_id: str

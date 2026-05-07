@@ -84,3 +84,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.project-card__id {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}

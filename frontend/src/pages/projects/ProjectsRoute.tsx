@@ -12,15 +12,15 @@ export function ProjectsRoute() {
   const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data]);
   const error = projectsQuery.error instanceof Error ? projectsQuery.error.message : undefined;
 
-  const activeProjects = useMemo(
-    () => projects.filter((project) => project.status === "active").length,
+  const hiddenProjects = useMemo(
+    () => projects.filter((project) => project.is_hidden).length,
     [projects],
   );
 
   return (
     <AppShell>
       <div className="projects-route">
-        <ProjectsHeader activeProjects={activeProjects} totalProjects={projects.length} />
+        <ProjectsHeader hiddenProjects={hiddenProjects} totalProjects={projects.length} />
 
         {error && <NoticeBlock tone="error">{error}</NoticeBlock>}
 

@@ -11,14 +11,6 @@
   justify-content: space-between;
 }
 
-.provider-route__eyebrow {
-  margin: 0 0 0.5rem;
-  color: var(--color-accent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 .provider-route__header h1,
 .provider-form h2,
 .provider-card h2 {

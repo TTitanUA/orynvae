@@ -22,28 +22,28 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         provider_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(model_providers)").fetchall()
         }
-        canon_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(canon_facts)").fetchall()
-        }
         provider_model_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(provider_models)").fetchall()
         }
-        character_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(characters)").fetchall()
+        project_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(projects)").fetchall()
         }
 
     assert "projects" in tables
     assert "model_providers" in tables
-    assert "canon_facts" in tables
-    assert "canon_fact_links" in tables
-    assert "timeline_events" in tables
-    assert "continuity_checks" in tables
+    assert "app_settings" in tables
     assert "schema_migrations" in tables
+    assert "characters" not in tables
+    assert "canon_facts" not in tables
     assert "is_enabled" in provider_columns
     assert "is_default" in provider_columns
     assert "is_allowed" in provider_model_columns
     assert "routing_config_json" in provider_model_columns
-    assert "gender" in character_columns
-    assert "age" in character_columns
-    assert "title" in canon_columns
-    assert "status" in canon_columns
+    assert project_columns == {
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "archived_at",
+        "is_hidden",
+    }

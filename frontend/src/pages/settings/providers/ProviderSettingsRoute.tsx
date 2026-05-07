@@ -932,7 +932,6 @@ export function ProviderSettingsRoute() {
       <div className="provider-route">
         <header className="provider-route__header">
           <div>
-            <p className="provider-route__eyebrow">MVP · этап 2</p>
             <h1>AI-провайдеры</h1>
           </div>
           <div className="provider-route__summary" aria-label="Сводка провайдеров">
@@ -1130,6 +1129,8 @@ export function ProviderSettingsRoute() {
                       <label className="provider-model-panel__search">
                         <Search size={16} aria-hidden="true" />
                         <input
+                          aria-label={`Search models for ${provider.name}`}
+                          name={`provider-${provider.id}-model-search`}
                           value={preference.query}
                           onChange={(event) =>
                             updatePreference(provider, (draft) => ({

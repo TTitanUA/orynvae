@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import {
   fetchChapterEditor,
+  fetchProject,
   fetchProjects,
   fetchProjectWorkspace,
 } from "../api/project-api";
@@ -12,6 +13,12 @@ export const projectQueries = {
     queryOptions({
       queryKey: projectQueryKeys.list(),
       queryFn: fetchProjects,
+    }),
+  detail: (projectId: string) =>
+    queryOptions({
+      queryKey: projectQueryKeys.detail(projectId),
+      queryFn: () => fetchProject(projectId),
+      enabled: Boolean(projectId),
     }),
   workspace: (projectId: string) =>
     queryOptions({
