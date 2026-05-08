@@ -43,6 +43,17 @@ class MemoryItemCreate(BaseModel):
     importance: int = 0
 
 
+class MemoryItemUpdate(BaseModel):
+    type: MemoryItemType | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    summary: str | None = None
+    body: str | None = None
+    status: MemoryItemStatus | None = None
+    source_type: str | None = None
+    source_id: str | None = None
+    importance: int | None = None
+
+
 class MemoryItemRecord(MemoryItemCreate):
     model_config = ConfigDict(from_attributes=True)
 

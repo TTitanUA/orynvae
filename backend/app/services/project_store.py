@@ -170,3 +170,16 @@ def archive_project(project_id: str) -> bool:
         )
         connection.commit()
     return cursor.rowcount > 0
+
+
+def touch_project(project_id: str) -> None:
+    with _connection() as connection:
+        connection.execute(
+            """
+            UPDATE projects
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND archived_at IS NULL
+            """,
+            (project_id,),
+        )
+        connection.commit()

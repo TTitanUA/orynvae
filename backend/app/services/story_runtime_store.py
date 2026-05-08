@@ -19,8 +19,11 @@ from app.models.story_runtime import (
     KeyEventRecord,
     MemoryItemCreate,
     MemoryItemRecord,
+    MemoryItemStatus,
+    MemoryItemUpdate,
     MemoryProposalCreate,
     MemoryProposalRecord,
+    MemoryProposalStatus,
     SessionTurnCreate,
     SessionTurnRecord,
     StoryLineCreate,
@@ -92,16 +95,52 @@ def create_memory_item(project_id: str, payload: MemoryItemCreate) -> MemoryItem
     return record
 
 
-def list_memory_items(project_id: str) -> list[MemoryItemRecord]:
+def list_memory_items(
+    project_id: str,
+    *,
+    type: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+    requires_confirmation: bool | None = None,
+) -> list[MemoryItemRecord]:
+    conditions = ["project_id = ?"]
+    parameters: list[object] = [project_id]
+    if type:
+        conditions.append("type = ?")
+        parameters.append(type)
+    if status:
+        conditions.append("status = ?")
+        parameters.append(status)
+    if requires_confirmation is True:
+        conditions.append("status = 'proposed'")
+    elif requires_confirmation is False:
+        conditions.append("status != 'proposed'")
+    if search:
+        conditions.append(
+            """
+            (
+              title LIKE ?
+              OR COALESCE(summary, '') LIKE ?
+              OR COALESCE(body, '') LIKE ?
+              OR lower(title) LIKE ?
+              OR lower(COALESCE(summary, '')) LIKE ?
+              OR lower(COALESCE(body, '')) LIKE ?
+            )
+            """
+        )
+        raw_needle = f"%{search}%"
+        needle = f"%{search.lower()}%"
+        parameters.extend([raw_needle, raw_needle, raw_needle, needle, needle, needle])
+
     with _connection() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT *
             FROM memory_items
-            WHERE project_id = ?
+            WHERE {' AND '.join(conditions)}
             ORDER BY updated_at DESC, title ASC
             """,
-            (project_id,),
+            parameters,
         ).fetchall()
     return [_memory_item_from_row(row) for row in rows]
 
@@ -117,6 +156,51 @@ def get_memory_item(project_id: str, item_id: str) -> MemoryItemRecord | None:
             (project_id, item_id),
         ).fetchone()
     return _memory_item_from_row(row) if row else None
+
+
+def update_memory_item(
+    project_id: str,
+    item_id: str,
+    payload: MemoryItemUpdate,
+) -> MemoryItemRecord | None:
+    current = get_memory_item(project_id, item_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"summary", "body", "source_type", "source_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if "title" in values and values["title"] is not None:
+        values["title"] = values["title"].strip()
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = list(values.values())
+    assignments.append("updated_at = CURRENT_TIMESTAMP")
+    parameters.extend([project_id, item_id])
+
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE memory_items
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_memory_item(project_id, item_id)
+
+
+def update_memory_item_status(
+    project_id: str,
+    item_id: str,
+    status: MemoryItemStatus,
+) -> MemoryItemRecord | None:
+    return update_memory_item(project_id, item_id, MemoryItemUpdate(status=status))
 
 
 def create_memory_proposal(
@@ -157,18 +241,61 @@ def create_memory_proposal(
     return next(item for item in rows if item.id == proposal_id)
 
 
-def list_memory_proposals(project_id: str) -> list[MemoryProposalRecord]:
+def list_memory_proposals(
+    project_id: str,
+    *,
+    status: str | None = None,
+) -> list[MemoryProposalRecord]:
+    conditions = ["project_id = ?"]
+    parameters: list[object] = [project_id]
+    if status:
+        conditions.append("status = ?")
+        parameters.append(status)
+
     with _connection() as connection:
         rows = connection.execute(
+            f"""
+            SELECT *
+            FROM memory_proposals
+            WHERE {' AND '.join(conditions)}
+            ORDER BY created_at DESC
+            """,
+            parameters,
+        ).fetchall()
+    return [_memory_proposal_from_row(row) for row in rows]
+
+
+def get_memory_proposal(project_id: str, proposal_id: str) -> MemoryProposalRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
             """
             SELECT *
             FROM memory_proposals
-            WHERE project_id = ?
-            ORDER BY created_at DESC
+            WHERE project_id = ? AND id = ?
             """,
-            (project_id,),
-        ).fetchall()
-    return [_memory_proposal_from_row(row) for row in rows]
+            (project_id, proposal_id),
+        ).fetchone()
+    return _memory_proposal_from_row(row) if row else None
+
+
+def update_memory_proposal_status(
+    project_id: str,
+    proposal_id: str,
+    status: MemoryProposalStatus,
+) -> MemoryProposalRecord | None:
+    with _connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE memory_proposals
+            SET status = ?
+            WHERE project_id = ? AND id = ?
+            """,
+            (status, project_id, proposal_id),
+        )
+        connection.commit()
+    if cursor.rowcount == 0:
+        return None
+    return get_memory_proposal(project_id, proposal_id)
 
 
 def create_story_line(project_id: str, payload: StoryLineCreate) -> StoryLineRecord:
