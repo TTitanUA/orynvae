@@ -51,6 +51,13 @@ MVP v2 нужен, чтобы проверить новую центральну
 - работу без собственного облачного backend;
 - чтение сохраненных проектов, если AI недоступен.
 
+### Debug logging
+
+- включается только через `DEBUG`;
+- пишет диагностические события только в `logs/app-<yyyy>-<mm>-<dd>.jsonl`;
+- не хранит debug logs, AI request logs, prompt/response dumps или frontend debug entries в SQLite;
+- не логирует запросы к `/api/debug/logs`.
+
 ### AI-провайдеры
 
 - LMStudio;

@@ -4,6 +4,8 @@
 
 Этот документ описывает концептуальную модель данных MVP v2. Он не заменяет SQL-миграции, но задает сущности, связи и статусы, которые нужны для реализации.
 
+Markdown - единственный формат хранения художественного текста. Поля глав и версий черновиков должны хранить markdown, а не HTML, rich text JSON или proprietary editor state.
+
 ## 2. Основные сущности
 
 ### Project
@@ -209,8 +211,8 @@ AI-провайдер.
 - order_index;
 - status;
 - synopsis;
-- draft_text;
-- final_text;
+- draft_markdown;
+- final_markdown;
 - session_id;
 - created_at;
 - updated_at.
@@ -318,7 +320,7 @@ turn_type:
 - chapter_id;
 - source_session_id;
 - mode;
-- text;
+- markdown;
 - status;
 - created_at;
 
@@ -369,26 +371,36 @@ status:
 
 Прогноз не является планом. Поле `is_selected_as_orientation` означает только мягкий ориентир.
 
-## 8. AI-сообщения
+## 8. Debug-логи не хранятся в БД
 
-### AiRequestLog
+В MVP v2 запрещено хранить debug-логи, AI request logs, prompt/response dumps или frontend debug entries в SQLite.
 
-Для отладки и прозрачности.
+Если debug включен, все диагностические события пишутся только в JSONL-файлы:
 
-Поля:
+```text
+logs/app-<yyyy>-<mm>-<dd>.jsonl
+```
 
-- id;
-- project_id;
-- request_type;
-- provider_id;
-- model_id;
-- input_summary;
-- output_summary;
-- status;
-- error_message;
-- created_at.
+Формат строки:
 
-Полные prompt/response можно хранить только если это включено настройками приватности/debug.
+```json
+{
+  "timestamp": "2026-05-08 15:30:45.123 +0300",
+  "module": "backend",
+  "category": "LLM",
+  "operation": "chat.request",
+  "payload": {}
+}
+```
+
+Правила:
+
+- `module`: `backend` или `frontend`;
+- `category`: `system`, `http` или `LLM`;
+- `payload` должен проходить sanitize;
+- секреты в ключах `authorization`, `api_key`, `apikey`, `password`, `secret`, `token`, `cookie` заменяются на `[redacted]`;
+- запросы к `/api/debug/logs` не логируются;
+- таблицы для debug logs или AI request logs не создаются.
 
 ## 9. Связи
 
@@ -403,6 +415,7 @@ status:
 - Chapter имеет много DraftVersion.
 - MemoryProposal может ссылаться на ChapterSession, Chapter или MemoryItem.
 - StoryLineProgress связывает StoryLine с Chapter и Session.
+- Debug logs не имеют связей в модели данных, потому что живут только в JSONL-файлах.
 
 ## 10. Миграционный подход
 
@@ -426,5 +439,5 @@ MVP v2 можно реализовать поэтапно:
 - хранить интерактивную сессию ходами;
 - собрать черновик из сессии;
 - предложить обновления канона;
-- сохранить прогноз следующих глав.
-
+- сохранить прогноз следующих глав;
+- не содержит таблиц или сущностей для debug logs / AI request logs.
