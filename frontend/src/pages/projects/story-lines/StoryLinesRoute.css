@@ -1,0 +1,224 @@
+.story-lines-route {
+  display: grid;
+  width: 100%;
+  max-width: 86rem;
+  gap: 1.25rem;
+}
+
+.story-lines-route__header,
+.story-lines-route__status,
+.story-lines-panel__title,
+.story-lines-group__heading,
+.story-line-card__header,
+.story-line-card__actions,
+.story-lines-form__actions,
+.story-line-suggestions article div {
+  display: flex;
+  align-items: center;
+}
+
+.story-lines-route__header {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.story-lines-route__header h1,
+.story-lines-route__header p,
+.story-lines-panel__title h2,
+.story-lines-group__heading h2,
+.story-line-card h3,
+.story-line-card p,
+.story-line-suggestions p,
+.story-lines-progress p {
+  margin: 0;
+}
+
+.story-lines-route__header h1 {
+  font-size: 1.875rem;
+}
+
+.story-lines-route__header p,
+.story-lines-route__back,
+.story-lines-empty,
+.story-line-card__header span,
+.story-lines-progress span,
+.story-line-suggestions span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.story-lines-route__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  text-decoration: none;
+}
+
+.story-lines-route__status {
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.story-lines-route__status a {
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #ffffff;
+  padding: 0.625rem 0.875rem;
+  text-decoration: none;
+}
+
+.story-lines-toolbar {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) 13rem 13rem;
+  gap: 0.75rem;
+}
+
+.story-lines-route__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25rem;
+  gap: 1rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.story-lines-route__main,
+.story-lines-route__side,
+.story-lines-list,
+.story-lines-form,
+.story-line-suggestions,
+.story-lines-progress {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.story-lines-group,
+.story-lines-panel,
+.story-line-card,
+.story-line-suggestions article {
+  display: grid;
+  gap: 0.875rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 1rem;
+}
+
+.story-lines-panel > *,
+.story-lines-form > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.story-lines-group__heading,
+.story-line-card__header {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.story-lines-panel__title {
+  gap: 0.5rem;
+}
+
+.story-lines-group__heading span {
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  padding: 0.125rem 0.5rem;
+}
+
+.story-line-card__header > div {
+  min-width: 0;
+}
+
+.story-line-card__header h3 {
+  margin-top: 0.125rem;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.story-line-card__header .status-pill {
+  flex: 0 0 auto;
+}
+
+.story-line-card p,
+.story-line-suggestions p,
+.story-lines-progress p {
+  overflow-wrap: anywhere;
+}
+
+.story-line-card__state {
+  border-left: 3px solid var(--color-border);
+  padding-left: 0.625rem;
+}
+
+.story-line-card__actions,
+.story-lines-form__actions,
+.story-line-suggestions article div {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.story-lines-toolbar input,
+.story-lines-toolbar select,
+.story-lines-form input,
+.story-lines-form select,
+.story-lines-form textarea {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
+  padding: 0.625rem 0.75rem;
+}
+
+.story-lines-form button,
+.story-line-card__actions button,
+.story-line-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.45rem 0.625rem;
+}
+
+.story-line-card__actions button:nth-child(n + 2),
+.story-line-suggestions button:nth-child(n + 2),
+.story-lines-form__actions button:nth-child(n + 2) {
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+}
+
+.story-lines-progress div {
+  display: grid;
+  gap: 0.25rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.625rem;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}

@@ -7,8 +7,10 @@ import { PrivacySettingsRoute } from "../../pages/settings/privacy/PrivacySettin
 import { ProviderSettingsRoute } from "../../pages/settings/providers/ProviderSettingsRoute";
 import { SettingsRoute } from "../../pages/settings/SettingsRoute";
 import {
+  ChapterPrepareRouteFromParams,
   ProjectWorkspaceIndexRedirect,
   ProjectWorkspaceRouteFromParams,
+  StoryLinesRouteFromParams,
 } from "./route-components";
 
 export const router = createBrowserRouter([
@@ -16,6 +18,9 @@ export const router = createBrowserRouter([
   { path: "/projects", element: <ProjectsRoute /> },
   { path: "/projects/create", element: <ProjectCreateRoute /> },
   { path: "/projects/:projectId", element: <ProjectWorkspaceRouteFromParams /> },
+  { path: "/projects/:projectId/story-lines", element: <StoryLinesRouteFromParams /> },
+  { path: "/projects/:projectId/chapters/prepare", element: <ChapterPrepareRouteFromParams /> },
+  { path: "/projects/:projectId/chapters/:chapterId/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/workspace", element: <ProjectWorkspaceIndexRedirect /> },
   {
     path: "/projects/:projectId/workspace/*",

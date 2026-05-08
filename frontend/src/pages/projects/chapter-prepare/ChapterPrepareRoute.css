@@ -1,0 +1,223 @@
+.chapter-prepare-route {
+  display: grid;
+  width: 100%;
+  max-width: 86rem;
+  gap: 1.25rem;
+}
+
+.chapter-prepare-route__header,
+.chapter-prepare-route__status,
+.chapter-prepare-panel__title,
+.chapter-prepare-form__actions,
+.chapter-choice-list label,
+.chapter-prepare-submit,
+.chapter-result > a {
+  display: flex;
+  align-items: center;
+}
+
+.chapter-prepare-route__header {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chapter-prepare-route__header h1,
+.chapter-prepare-route__header p,
+.chapter-prepare-panel__title h2,
+.chapter-selector dl,
+.chapter-result p {
+  margin: 0;
+}
+
+.chapter-prepare-route__header h1 {
+  font-size: 1.875rem;
+}
+
+.chapter-prepare-route__header p,
+.chapter-prepare-route__back,
+.chapter-prepare-empty,
+.chapter-selector dt,
+.chapter-choice-list em,
+.chapter-result span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.chapter-prepare-route__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  text-decoration: none;
+}
+
+.chapter-prepare-route__status {
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.chapter-prepare-route__status a,
+.chapter-result > a {
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #ffffff;
+  padding: 0.625rem 0.875rem;
+  text-decoration: none;
+}
+
+.chapter-prepare-route__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25rem;
+  gap: 1rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.chapter-prepare-main,
+.chapter-prepare-side,
+.chapter-prepare-form,
+.chapter-prepare-panel,
+.chapter-selector,
+.chapter-choice-list,
+.chapter-line-focus,
+.chapter-result,
+.chapter-result article {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.chapter-prepare-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 1rem;
+}
+
+.chapter-prepare-panel > *,
+.chapter-prepare-form > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chapter-prepare-panel__title {
+  gap: 0.5rem;
+}
+
+.chapter-selector dl {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 0.625rem 1rem;
+}
+
+.chapter-selector div {
+  display: contents;
+}
+
+.chapter-selector dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chapter-prepare-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.chapter-prepare-panel input,
+.chapter-prepare-panel select,
+.chapter-prepare-panel textarea {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
+  padding: 0.625rem 0.75rem;
+}
+
+.chapter-choice-list {
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.875rem;
+}
+
+.chapter-choice-list legend {
+  padding: 0 0.375rem;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.chapter-choice-list label {
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.chapter-choice-list input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.chapter-choice-list span {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.chapter-choice-list strong {
+  overflow-wrap: anywhere;
+}
+
+.chapter-choice-list em {
+  font-style: normal;
+}
+
+.chapter-line-focus > label {
+  display: grid;
+  gap: 0.375rem;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.chapter-prepare-submit {
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.5rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.875rem;
+}
+
+.chapter-result article {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.chapter-result p,
+.chapter-result span {
+  overflow-wrap: anywhere;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}

@@ -345,6 +345,9 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                   ))}
                   {summary.active_story_lines.length === 0 && <span>линии появятся на следующем этапе</span>}
                 </div>
+                <Link className="workspace-secondary-link" to={`/projects/${projectId}/story-lines`}>
+                  Открыть линии
+                </Link>
               </article>
             </section>
           </>

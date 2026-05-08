@@ -91,6 +91,16 @@ class StoryLineCreate(BaseModel):
     last_progress_chapter_id: str | None = None
 
 
+class StoryLineUpdate(BaseModel):
+    type: StoryLineType | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    description: str | None = None
+    current_state: str | None = None
+    status: StoryLineStatus | None = None
+    priority: int | None = None
+    last_progress_chapter_id: str | None = None
+
+
 class StoryLineRecord(StoryLineCreate):
     model_config = ConfigDict(from_attributes=True)
 
@@ -127,6 +137,16 @@ class ChapterCreate(BaseModel):
     session_id: str | None = None
 
 
+class ChapterUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    order_index: int | None = None
+    status: ChapterStatus | None = None
+    synopsis: str | None = None
+    draft_markdown: str | None = None
+    final_markdown: str | None = None
+    session_id: str | None = None
+
+
 class ChapterRecord(ChapterCreate):
     model_config = ConfigDict(from_attributes=True)
 
@@ -142,6 +162,20 @@ class ChapterSessionCreate(BaseModel):
     user_role: str | None = None
     controlled_character_ids: list[str] = Field(default_factory=list)
     active_story_line_ids: list[str] = Field(default_factory=list)
+    tone: str | None = None
+    pace: str | None = None
+    expansion_policy_override: str | None = None
+    started_at: str | None = None
+    paused_at: str | None = None
+    completed_at: str | None = None
+
+
+class ChapterSessionUpdate(BaseModel):
+    chapter_id: str | None = None
+    status: ChapterSessionStatus | None = None
+    user_role: str | None = None
+    controlled_character_ids: list[str] | None = None
+    active_story_line_ids: list[str] | None = None
     tone: str | None = None
     pace: str | None = None
     expansion_policy_override: str | None = None

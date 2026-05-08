@@ -9,6 +9,8 @@ from app.models.story_runtime import (
     ChapterRecord,
     ChapterSessionCreate,
     ChapterSessionRecord,
+    ChapterSessionUpdate,
+    ChapterUpdate,
     DraftVersionCreate,
     DraftVersionRecord,
     ForecastCreate,
@@ -30,6 +32,8 @@ from app.models.story_runtime import (
     StoryLineProgressCreate,
     StoryLineProgressRecord,
     StoryLineRecord,
+    StoryLineStatus,
+    StoryLineUpdate,
 )
 from app.storage.migrations import apply_migrations
 from app.storage.paths import get_database_path
@@ -335,16 +339,47 @@ def create_story_line(project_id: str, payload: StoryLineCreate) -> StoryLineRec
     return record
 
 
-def list_story_lines(project_id: str) -> list[StoryLineRecord]:
+def list_story_lines(
+    project_id: str,
+    *,
+    type: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> list[StoryLineRecord]:
+    conditions = ["project_id = ?"]
+    parameters: list[object] = [project_id]
+    if type:
+        conditions.append("type = ?")
+        parameters.append(type)
+    if status:
+        conditions.append("status = ?")
+        parameters.append(status)
+    if search:
+        conditions.append(
+            """
+            (
+              title LIKE ?
+              OR COALESCE(description, '') LIKE ?
+              OR COALESCE(current_state, '') LIKE ?
+              OR lower(title) LIKE ?
+              OR lower(COALESCE(description, '')) LIKE ?
+              OR lower(COALESCE(current_state, '')) LIKE ?
+            )
+            """
+        )
+        raw_needle = f"%{search}%"
+        needle = f"%{search.lower()}%"
+        parameters.extend([raw_needle, raw_needle, raw_needle, needle, needle, needle])
+
     with _connection() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT *
             FROM story_lines
-            WHERE project_id = ?
+            WHERE {' AND '.join(conditions)}
             ORDER BY priority DESC, updated_at DESC, title ASC
             """,
-            (project_id,),
+            parameters,
         ).fetchall()
     return [_story_line_from_row(row) for row in rows]
 
@@ -360,6 +395,51 @@ def get_story_line(project_id: str, line_id: str) -> StoryLineRecord | None:
             (project_id, line_id),
         ).fetchone()
     return _story_line_from_row(row) if row else None
+
+
+def update_story_line(
+    project_id: str,
+    line_id: str,
+    payload: StoryLineUpdate,
+) -> StoryLineRecord | None:
+    current = get_story_line(project_id, line_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"description", "current_state", "last_progress_chapter_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if "title" in values and values["title"] is not None:
+        values["title"] = values["title"].strip()
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = list(values.values())
+    assignments.append("updated_at = CURRENT_TIMESTAMP")
+    parameters.extend([project_id, line_id])
+
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE story_lines
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_story_line(project_id, line_id)
+
+
+def update_story_line_status(
+    project_id: str,
+    line_id: str,
+    status: StoryLineStatus,
+) -> StoryLineRecord | None:
+    return update_story_line(project_id, line_id, StoryLineUpdate(status=status))
 
 
 def create_story_line_progress(
@@ -475,6 +555,43 @@ def get_chapter(project_id: str, chapter_id: str) -> ChapterRecord | None:
     return _chapter_from_row(row) if row else None
 
 
+def update_chapter(
+    project_id: str,
+    chapter_id: str,
+    payload: ChapterUpdate,
+) -> ChapterRecord | None:
+    current = get_chapter(project_id, chapter_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"synopsis", "session_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if "title" in values and values["title"] is not None:
+        values["title"] = values["title"].strip()
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = list(values.values())
+    assignments.append("updated_at = CURRENT_TIMESTAMP")
+    parameters.extend([project_id, chapter_id])
+
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE chapters
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_chapter(project_id, chapter_id)
+
+
 def create_chapter_session(
     project_id: str,
     payload: ChapterSessionCreate,
@@ -532,6 +649,84 @@ def list_chapter_sessions(project_id: str) -> list[ChapterSessionRecord]:
             (project_id,),
         ).fetchall()
     return [_chapter_session_from_row(row) for row in rows]
+
+
+def get_chapter_session(project_id: str, session_id: str) -> ChapterSessionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_sessions
+            WHERE project_id = ? AND id = ?
+            """,
+            (project_id, session_id),
+        ).fetchone()
+    return _chapter_session_from_row(row) if row else None
+
+
+def get_chapter_session_for_chapter(
+    project_id: str,
+    chapter_id: str,
+) -> ChapterSessionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_sessions
+            WHERE project_id = ? AND chapter_id = ?
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1
+            """,
+            (project_id, chapter_id),
+        ).fetchone()
+    return _chapter_session_from_row(row) if row else None
+
+
+def update_chapter_session(
+    project_id: str,
+    session_id: str,
+    payload: ChapterSessionUpdate,
+) -> ChapterSessionRecord | None:
+    current = get_chapter_session(project_id, session_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {
+        "chapter_id",
+        "user_role",
+        "tone",
+        "pace",
+        "expansion_policy_override",
+        "started_at",
+        "paused_at",
+        "completed_at",
+    }
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    for key in ["controlled_character_ids", "active_story_line_ids"]:
+        if key in values and values[key] is not None:
+            values[key] = _json(values[key])
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = list(values.values())
+    assignments.append("updated_at = CURRENT_TIMESTAMP")
+    parameters.extend([project_id, session_id])
+
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE chapter_sessions
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_chapter_session(project_id, session_id)
 
 
 def create_session_turn(session_id: str, payload: SessionTurnCreate) -> SessionTurnRecord:

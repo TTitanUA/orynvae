@@ -218,9 +218,12 @@ def test_start_story_confirm_creates_project_memory_lines_and_initial_chapter(
     stored_memory = story_runtime_store.list_memory_items(project["id"])
     stored_lines = story_runtime_store.list_story_lines(project["id"])
     stored_chapters = story_runtime_store.list_chapters(project["id"])
+    line_api = client.get(f"/api/projects/{project['id']}/story-lines")
     assert [item.title for item in stored_memory] == ["Курьер"]
     assert [line.title for line in stored_lines] == ["Кто прожил будущее?"]
     assert [chapter.title for chapter in stored_chapters] == ["Архив"]
+    assert line_api.status_code == 200
+    assert [line["title"] for line in line_api.json()] == ["Кто прожил будущее?"]
 
 
 def test_start_story_refine_applies_user_feedback_to_current_analysis(tmp_path, monkeypatch):

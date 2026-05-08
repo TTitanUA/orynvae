@@ -141,6 +141,7 @@
 }
 
 .workspace-primary-link,
+.workspace-secondary-link,
 .workspace-form button,
 .memory-card__actions button,
 .proposal-card__actions button {
@@ -156,6 +157,16 @@
   display: inline-flex;
   justify-content: center;
   padding: 0.625rem 0.875rem;
+  text-decoration: none;
+}
+
+.workspace-secondary-link {
+  display: inline-flex;
+  justify-content: center;
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  padding: 0.5rem 0.75rem;
   text-decoration: none;
 }
 

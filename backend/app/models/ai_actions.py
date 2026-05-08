@@ -218,6 +218,11 @@ class PrepareChapterSessionOutput(StrictAiModel):
     narrator_opening: str = Field(min_length=1)
     suggested_actions: list[AiSuggestedAction] = Field(default_factory=list)
     relevant_memory_titles: list[str] = Field(default_factory=list)
+    chapter_intention: str | None = None
+    start_situation: str | None = None
+    participant_titles: list[str] = Field(default_factory=list)
+    possible_line_movements: list[str] = Field(default_factory=list)
+    coherence_risks: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 

@@ -151,7 +151,7 @@ def get_workspace_summary(project_id: str) -> ProjectWorkspaceSummary | None:
         next_step=_next_step(
             project_id=project_id,
             read_only=runtime.read_only,
-            planned_chapter=planned_chapter is not None,
+            planned_chapter_id=planned_chapter.id if planned_chapter else None,
             pending_attention=bool(pending_memory_items or pending_proposals),
         ),
         memory_counts=_memory_counts(memory_items, pending_proposals),
@@ -221,7 +221,7 @@ def _next_step(
     *,
     project_id: str,
     read_only: bool,
-    planned_chapter: bool,
+    planned_chapter_id: str | None,
     pending_attention: bool,
 ) -> WorkspaceNextStep:
     if read_only:
@@ -231,12 +231,12 @@ def _next_step(
             detail="Творческие действия заблокированы, пока модель недоступна.",
             href="/settings/providers",
         )
-    if planned_chapter:
+    if planned_chapter_id:
         return WorkspaceNextStep(
             code="prepare_first_chapter",
             label="Подготовить первую главу",
             detail="Стартовая точка уже сохранена, следующий шаг - подготовка рассказчика.",
-            href=f"/projects/{project_id}",
+            href=f"/projects/{project_id}/chapters/{planned_chapter_id}/prepare",
         )
     if pending_attention:
         return WorkspaceNextStep(
@@ -249,5 +249,5 @@ def _next_step(
         code="continue_story",
         label="Продолжить историю",
         detail="Workspace готов к следующему творческому шагу.",
-        href=f"/projects/{project_id}",
+        href=f"/projects/{project_id}/chapters/prepare",
     )
