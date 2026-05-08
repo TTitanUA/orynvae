@@ -35,4 +35,21 @@ describe("shared API errors", () => {
     expect(error.status).toBe(404);
     expect(error.fieldErrors).toEqual({ provider_id: "Provider not found" });
   });
+
+  it("uses object detail messages from backend error envelopes", async () => {
+    const response = new Response(
+      JSON.stringify({
+        detail: {
+          code: "READ_ONLY_WITHOUT_AI",
+          message: "AI provider is not configured",
+        },
+      }),
+      { status: 409, statusText: "Conflict" },
+    );
+
+    const error = await apiErrorFromResponse(response);
+
+    expect(error.message).toBe("AI provider is not configured");
+    expect(error.status).toBe(409);
+  });
 });

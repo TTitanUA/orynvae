@@ -86,6 +86,8 @@ async def execute_action(request: AiActionRequest) -> AiActionResult:
             model_id=resolved.model.model_id,
             messages=messages,
             temperature=request.temperature,
+            top_p=request.top_p,
+            reasoning_effort=request.reasoning_effort,
             routing_config=resolved.model.routing_config,
         )
         _log_action(
@@ -157,6 +159,8 @@ async def stream_action_events(request: AiActionRequest) -> AsyncIterator[AiActi
                 model_id=resolved.model.model_id,
                 messages=build_action_messages(request, definition),
                 temperature=request.temperature,
+                top_p=request.top_p,
+                reasoning_effort=request.reasoning_effort,
                 routing_config=resolved.model.routing_config,
             ):
                 raw_chunks.append(chunk)
@@ -167,6 +171,8 @@ async def stream_action_events(request: AiActionRequest) -> AsyncIterator[AiActi
                 model_id=resolved.model.model_id,
                 messages=build_action_messages(request, definition),
                 temperature=request.temperature,
+                top_p=request.top_p,
+                reasoning_effort=request.reasoning_effort,
                 routing_config=resolved.model.routing_config,
             )
             raw_chunks.append(text)
@@ -350,6 +356,8 @@ async def _repair_structured_output(
                 validation_error=str(validation_error),
             ),
             temperature=0,
+            top_p=request.top_p,
+            reasoning_effort=request.reasoning_effort,
             routing_config=resolved.model.routing_config,
         )
     except Exception as exc:

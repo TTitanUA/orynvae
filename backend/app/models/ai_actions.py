@@ -24,6 +24,7 @@ AiActionType = Literal[
     "check_contradictions",
 ]
 PrivacyLevel = Literal["local", "external", "project", "sensitive"]
+ReasoningEffort = Literal["low", "medium", "high"]
 AiActionStreamEventType = Literal[
     "start",
     "delta",
@@ -66,6 +67,8 @@ class AiActionRequest(StrictAiModel):
     streaming: bool = False
     privacy_level: PrivacyLevel = "project"
     temperature: float = Field(default=0.7, ge=0, le=2)
+    top_p: float | None = Field(default=None, ge=0, le=1)
+    reasoning_effort: ReasoningEffort | None = None
 
 
 class AiActionProviderReference(StrictAiModel):

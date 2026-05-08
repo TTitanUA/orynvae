@@ -61,13 +61,24 @@ export function fieldErrorsFromMessage(message: string): ApiFieldErrors {
   return {};
 }
 
+function messageFromDetail(detail: unknown): string | undefined {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (detail && typeof detail === "object" && "message" in detail) {
+    const message = (detail as { message?: unknown }).message;
+    return typeof message === "string" ? message : undefined;
+  }
+  return undefined;
+}
+
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
   const body = await response.json().catch(() => undefined);
   const detail =
     body && typeof body === "object" && "detail" in body
       ? (body as { detail?: unknown }).detail
       : undefined;
-  const detailMessage = typeof detail === "string" ? detail : undefined;
+  const detailMessage = messageFromDetail(detail);
   const message = detailMessage || response.statusText || `Request failed with status ${response.status}`;
   const fieldErrors = {
     ...fieldErrorsFromDetail(detail),

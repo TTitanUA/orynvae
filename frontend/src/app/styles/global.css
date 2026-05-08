@@ -6,6 +6,7 @@
 
 html {
   min-width: var(--app-min-width);
+  overflow-x: hidden;
   color: var(--color-text);
   background: var(--color-page);
   font-family:
@@ -16,6 +17,7 @@ html {
 body {
   min-width: var(--app-min-width);
   margin: 0;
+  overflow-x: hidden;
 }
 
 #root {

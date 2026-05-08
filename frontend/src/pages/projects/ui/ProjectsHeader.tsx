@@ -29,7 +29,7 @@ export function ProjectsHeader({ readOnly, totalProjects }: ProjectsHeaderProps)
         ) : (
           <Link className="projects-header__create-link" to="/projects/create">
             <Plus size={16} aria-hidden="true" />
-            Создать проект
+            Начать историю
           </Link>
         )}
       </div>

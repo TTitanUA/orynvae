@@ -5,6 +5,11 @@ import type {
   ContinuityCheck,
   ContinuityCheckPayload,
   Project,
+  StartStoryAnalysis,
+  StartStoryAnalyzePayload,
+  StartStoryConfirmPayload,
+  StartStoryConfirmResponse,
+  StartStoryRefinePayload,
   ProjectSetupAnalysis,
   ProjectSetupAnalysisPayload,
   ProjectSetupCreatePayload,
@@ -21,6 +26,33 @@ export async function fetchProjects(): Promise<Project[]> {
 
 export async function fetchProject(projectId: string): Promise<Project> {
   return requestJson<Project>(`/api/projects/${projectId}`);
+}
+
+export async function analyzeStartStory(
+  payload: StartStoryAnalyzePayload,
+): Promise<StartStoryAnalysis> {
+  return requestJson<StartStoryAnalysis>("/api/projects/start/analyze", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function refineStartStory(
+  payload: StartStoryRefinePayload,
+): Promise<StartStoryAnalysis> {
+  return requestJson<StartStoryAnalysis>("/api/projects/start/refine", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmStartStory(
+  payload: StartStoryConfirmPayload,
+): Promise<StartStoryConfirmResponse> {
+  return requestJson<StartStoryConfirmResponse>("/api/projects/start/confirm", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function analyzeProjectSetup(

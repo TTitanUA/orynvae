@@ -28,12 +28,23 @@ class QueueAdapter:
         self.complete_calls: list[dict[str, object]] = []
         self.stream_calls: list[dict[str, object]] = []
 
-    async def complete_chat(self, *, model_id, messages, temperature, routing_config=None):
+    async def complete_chat(
+        self,
+        *,
+        model_id,
+        messages,
+        temperature,
+        top_p=None,
+        reasoning_effort=None,
+        routing_config=None,
+    ):
         self.complete_calls.append(
             {
                 "model_id": model_id,
                 "messages": messages,
                 "temperature": temperature,
+                "top_p": top_p,
+                "reasoning_effort": reasoning_effort,
                 "routing_config": routing_config,
             }
         )
@@ -43,12 +54,23 @@ class QueueAdapter:
             raise AssertionError("No queued complete_chat response")
         return self.responses.pop(0)
 
-    async def stream_chat(self, *, model_id, messages, temperature, routing_config=None):
+    async def stream_chat(
+        self,
+        *,
+        model_id,
+        messages,
+        temperature,
+        top_p=None,
+        reasoning_effort=None,
+        routing_config=None,
+    ):
         self.stream_calls.append(
             {
                 "model_id": model_id,
                 "messages": messages,
                 "temperature": temperature,
+                "top_p": top_p,
+                "reasoning_effort": reasoning_effort,
                 "routing_config": routing_config,
             }
         )

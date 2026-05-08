@@ -1,7 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
+from app.ai.service import AiActionException
 from app.models.projects import ProjectCreate, ProjectRecord, ProjectUpdate
-from app.services import project_store
+from app.models.start_story import (
+    StartStoryAnalysisResponse,
+    StartStoryAnalyzeRequest,
+    StartStoryConfirmRequest,
+    StartStoryConfirmResponse,
+    StartStoryRefineRequest,
+)
+from app.services import project_store, start_story
 from app.services.runtime_status import require_creative_write
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -18,6 +26,34 @@ def create_project(
     _: None = Depends(require_creative_write),
 ) -> ProjectRecord:
     return project_store.create_project(payload)
+
+
+@router.post("/start/analyze", response_model=StartStoryAnalysisResponse)
+async def analyze_start_story(payload: StartStoryAnalyzeRequest) -> StartStoryAnalysisResponse:
+    try:
+        return await start_story.analyze_start_story(payload)
+    except AiActionException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
+
+
+@router.post("/start/refine", response_model=StartStoryAnalysisResponse)
+async def refine_start_story(payload: StartStoryRefineRequest) -> StartStoryAnalysisResponse:
+    try:
+        return await start_story.refine_start_story(payload)
+    except AiActionException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
+
+
+@router.post(
+    "/start/confirm",
+    response_model=StartStoryConfirmResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def confirm_start_story(payload: StartStoryConfirmRequest) -> StartStoryConfirmResponse:
+    try:
+        return start_story.confirm_start_story(payload)
+    except AiActionException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
 
 
 @router.get("/{project_id}", response_model=ProjectRecord)

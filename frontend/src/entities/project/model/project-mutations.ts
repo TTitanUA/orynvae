@@ -1,8 +1,11 @@
 import { mutationOptions } from "@tanstack/react-query";
 
 import {
+  analyzeStartStory,
   analyzeProjectSetup,
+  confirmStartStory,
   createProjectFromSetup,
+  refineStartStory,
   requestContinuityCheck,
   updateChapterEditor,
   updateProjectWorkspace,
@@ -13,9 +16,27 @@ import type {
   ProjectSetupAnalysisPayload,
   ProjectSetupCreatePayload,
   ProjectWorkspacePayload,
+  StartStoryAnalyzePayload,
+  StartStoryConfirmPayload,
+  StartStoryRefinePayload,
 } from "./types";
 
 export const projectMutations = {
+  analyzeStartStory: () =>
+    mutationOptions({
+      mutationKey: ["projects", "start", "analyze"] as const,
+      mutationFn: (payload: StartStoryAnalyzePayload) => analyzeStartStory(payload),
+    }),
+  confirmStartStory: () =>
+    mutationOptions({
+      mutationKey: ["projects", "start", "confirm"] as const,
+      mutationFn: (payload: StartStoryConfirmPayload) => confirmStartStory(payload),
+    }),
+  refineStartStory: () =>
+    mutationOptions({
+      mutationKey: ["projects", "start", "refine"] as const,
+      mutationFn: (payload: StartStoryRefinePayload) => refineStartStory(payload),
+    }),
   analyzeSetup: () =>
     mutationOptions({
       mutationKey: ["project-setup", "analyze"] as const,

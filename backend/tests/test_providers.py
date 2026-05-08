@@ -37,10 +37,28 @@ class FakeAdapter:
 
 
 class FakeChatAdapter(FakeAdapter):
-    async def complete_chat(self, *, model_id, messages, temperature, routing_config=None):
+    async def complete_chat(
+        self,
+        *,
+        model_id,
+        messages,
+        temperature,
+        top_p=None,
+        reasoning_effort=None,
+        routing_config=None,
+    ):
         return f"complete:{model_id}:{messages[-1].content}:{temperature}"
 
-    async def stream_chat(self, *, model_id, messages, temperature, routing_config=None):
+    async def stream_chat(
+        self,
+        *,
+        model_id,
+        messages,
+        temperature,
+        top_p=None,
+        reasoning_effort=None,
+        routing_config=None,
+    ):
         yield "stream "
         yield f"{model_id} "
         yield messages[-1].content
@@ -408,6 +426,67 @@ async def test_openrouter_payload_includes_routing_config(monkeypatch):
         "provider": {"order": ["deepinfra/turbo"], "allow_fallbacks": False},
     }
     assert captured["timeout"].read == adapters.EXTERNAL_CHAT_READ_TIMEOUT_SECONDS
+
+
+@pytest.mark.anyio
+async def test_openrouter_payload_includes_sampling_and_reasoning(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    class FakeClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, url, *, headers, json):
+            captured["json"] = json
+            return FakeResponse()
+
+    monkeypatch.setattr(adapters.httpx, "AsyncClient", FakeClient)
+    provider = ProviderRecord(
+        id="provider",
+        type="openrouter",
+        name="OpenRouter",
+        base_url="https://openrouter.ai/api/v1",
+        has_api_key=True,
+        is_local=False,
+        is_external=True,
+        is_enabled=True,
+        is_default=True,
+        streaming_enabled=True,
+        models_path="/models",
+        chat_path="/chat/completions",
+        default_model_id="deepseek/deepseek-r1",
+        last_checked_at=None,
+        last_error=None,
+        created_at="2026-05-04 00:00:00",
+        updated_at="2026-05-04 00:00:00",
+    )
+    adapter = OpenAICompatibleAdapter(provider, "secret")
+
+    text = await adapter.complete_chat(
+        model_id="deepseek/deepseek-r1",
+        messages=[ChatMessage(role="user", content="Hello")],
+        temperature=0.3,
+        top_p=0.9,
+        reasoning_effort="high",
+    )
+
+    assert text == "ok"
+    assert captured["json"]["temperature"] == 0.3
+    assert captured["json"]["top_p"] == 0.9
+    assert captured["json"]["reasoning"] == {"effort": "high"}
 
 
 @pytest.mark.anyio

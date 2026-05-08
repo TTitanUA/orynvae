@@ -9,6 +9,8 @@ import httpx
 from app.core.debug_logging import debug_log
 from app.models.providers import ChatMessage, ProviderRecord, ProviderType
 
+ReasoningEffortValue = str
+
 
 @dataclass(frozen=True)
 class ProviderDefinition:
@@ -155,6 +157,13 @@ def _timeout_payload(timeout: httpx.Timeout) -> dict[str, float | None]:
     }
 
 
+def _ollama_options(*, temperature: float, top_p: float | None) -> dict[str, float]:
+    options = {"temperature": temperature}
+    if top_p is not None:
+        options["top_p"] = top_p
+    return options
+
+
 class ProviderAdapter:
     def __init__(self, provider: ProviderRecord, api_key: str | None) -> None:
         self.provider = provider
@@ -182,6 +191,8 @@ class ProviderAdapter:
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> str:
         raise NotImplementedError
@@ -192,12 +203,16 @@ class ProviderAdapter:
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         text = await self.complete_chat(
             model_id=model_id,
             messages=messages,
             temperature=temperature,
+            top_p=top_p,
+            reasoning_effort=reasoning_effort,
             routing_config=routing_config,
         )
         yield text
@@ -286,6 +301,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         messages: list[ChatMessage],
         temperature: float,
         stream: bool,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -294,6 +311,13 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             "temperature": temperature,
             "stream": stream,
         }
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if reasoning_effort:
+            if self.provider.type == "openrouter":
+                payload["reasoning"] = {"effort": reasoning_effort}
+            else:
+                payload["reasoning_effort"] = reasoning_effort
         if self.provider.type == "openrouter" and routing_config:
             payload["provider"] = routing_config
         return payload
@@ -372,6 +396,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> str:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
@@ -380,6 +406,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             messages=messages,
             temperature=temperature,
             stream=False,
+            top_p=top_p,
+            reasoning_effort=reasoning_effort,
             routing_config=routing_config,
         )
         headers = self._headers()
@@ -449,6 +477,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
@@ -457,6 +487,8 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             messages=messages,
             temperature=temperature,
             stream=True,
+            top_p=top_p,
+            reasoning_effort=reasoning_effort,
             routing_config=routing_config,
         )
         headers = self._headers()
@@ -599,13 +631,15 @@ class OllamaAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> str:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
         payload = {
             "model": model_id,
             "messages": [message.model_dump() for message in messages],
-            "options": {"temperature": temperature},
+            "options": _ollama_options(temperature=temperature, top_p=top_p),
             "stream": False,
         }
         started = time.perf_counter()
@@ -666,13 +700,15 @@ class OllamaAdapter(ProviderAdapter):
         model_id: str,
         messages: list[ChatMessage],
         temperature: float,
+        top_p: float | None = None,
+        reasoning_effort: ReasoningEffortValue | None = None,
         routing_config: dict[str, object] | None = None,
     ) -> AsyncIterator[str]:
         url = _join_url(self.provider.base_url, self.provider.chat_path)
         payload = {
             "model": model_id,
             "messages": [message.model_dump() for message in messages],
-            "options": {"temperature": temperature},
+            "options": _ollama_options(temperature=temperature, top_p=top_p),
             "stream": True,
         }
         started = time.perf_counter()
