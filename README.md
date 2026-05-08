@@ -88,6 +88,4 @@ pnpm dev
 - [Концепт приложения v2](docs/concept-v2.md)
 - [MVP v2](docs/mvp-v2.md)
 - [Технический стек v2](docs/technical-stack-v2.md)
-- [Техническая спецификация](docs/technical-spec.md)
-- [Общий план MVP](plans/mvp-implementation-plan.md)
-- [Задачи этапа 1](plans/stage-1-tasks.md)
+- [План реализации MVP v2](plans/mvp-v2-implementation-plan.md)
