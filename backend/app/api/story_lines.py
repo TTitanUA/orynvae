@@ -35,6 +35,15 @@ def list_story_lines(
     )
 
 
+@router.get("/{line_id}", response_model=StoryLineRecord)
+def get_story_line(project_id: str, line_id: str) -> StoryLineRecord:
+    _project_or_404(project_id)
+    line = story_runtime_store.get_story_line(project_id, line_id)
+    if line is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Story line not found")
+    return line
+
+
 @router.post("", response_model=StoryLineRecord, status_code=status.HTTP_201_CREATED)
 def create_story_line(
     project_id: str,

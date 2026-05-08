@@ -14,6 +14,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "002_provider_state.sql" in applied
     assert "004_provider_model_preferences.sql" in applied
     assert "007_v2_runtime_schema.sql" in applied
+    assert "008_hidden_projects.sql" in applied
     with sqlite3.connect(data_dir / "app.db") as connection:
         tables = {
             row[0]
@@ -72,6 +73,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         "active_provider_id",
         "active_model_id",
         "expansion_policy",
+        "is_hidden",
         "created_at",
         "updated_at",
         "archived_at",
@@ -108,7 +110,7 @@ def test_v2_project_migration_replaces_legacy_projects(tmp_path, monkeypatch):
 
     applied = apply_migrations()
 
-    assert applied == ["007_v2_runtime_schema.sql"]
+    assert applied == ["007_v2_runtime_schema.sql", "008_hidden_projects.sql"]
     with sqlite3.connect(database_path) as connection:
         project_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(projects)").fetchall()
@@ -122,7 +124,7 @@ def test_v2_project_migration_replaces_legacy_projects(tmp_path, monkeypatch):
         }
 
     assert "name" not in project_columns
-    assert "is_hidden" not in project_columns
+    assert "is_hidden" in project_columns
     assert {"title", "synopsis", "status", "expansion_policy"}.issubset(project_columns)
     assert rows == []
     assert provider_tables == {"model_providers", "provider_models"}

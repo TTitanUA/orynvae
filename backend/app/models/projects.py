@@ -11,6 +11,7 @@ class ProjectRecord(BaseModel):
     active_provider_id: str | None = None
     active_model_id: str | None = None
     expansion_policy: str
+    is_hidden: bool = False
     created_at: str
     updated_at: str
     archived_at: str | None = None
@@ -23,6 +24,7 @@ class ProjectCreate(BaseModel):
     active_provider_id: str | None = None
     active_model_id: str | None = None
     expansion_policy: str = Field(default="ask", min_length=1, max_length=80)
+    is_hidden: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -32,3 +34,4 @@ class ProjectUpdate(BaseModel):
     active_provider_id: str | None = None
     active_model_id: str | None = None
     expansion_policy: str | None = Field(default=None, min_length=1, max_length=80)
+    is_hidden: bool | None = None

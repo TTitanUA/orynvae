@@ -8,6 +8,7 @@ import {
   refineStartStory,
   requestContinuityCheck,
   updateChapterEditor,
+  updateProject,
   updateProjectWorkspace,
 } from "../api/project-api";
 import type {
@@ -15,6 +16,7 @@ import type {
   ContinuityCheckPayload,
   ProjectSetupAnalysisPayload,
   ProjectSetupCreatePayload,
+  ProjectUpdatePayload,
   ProjectWorkspacePayload,
   StartStoryAnalyzePayload,
   StartStoryConfirmPayload,
@@ -46,6 +48,11 @@ export const projectMutations = {
     mutationOptions({
       mutationKey: ["project-setup", "create"] as const,
       mutationFn: (payload: ProjectSetupCreatePayload) => createProjectFromSetup(payload),
+    }),
+  update: (projectId: string) =>
+    mutationOptions({
+      mutationKey: ["projects", "detail", projectId, "update"] as const,
+      mutationFn: (payload: ProjectUpdatePayload) => updateProject(projectId, payload),
     }),
   updateWorkspace: (projectId: string) =>
     mutationOptions({

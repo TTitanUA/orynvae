@@ -8,12 +8,13 @@ import {
   ListFilter,
   Pencil,
   Plus,
+  Settings2,
   ShieldCheck,
   Sparkles,
   X,
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   acceptMemoryProposal,
@@ -37,6 +38,8 @@ import {
   type MemoryProposal,
   type MemoryProposalAcceptPayload,
 } from "../../../entities/memory";
+import { projectMutations, projectQueryKeys } from "../../../entities/project";
+import { privacySettingsQueries } from "../../../entities/privacy-settings";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
 import "./ProjectWorkspaceRoute.css";
@@ -120,6 +123,7 @@ function payloadType(payload: Record<string, unknown>): MemoryItemType {
 }
 
 export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<MemoryFilters>({});
   const [createDraft, setCreateDraft] = useState<MemoryDraft>(emptyMemoryDraft);
@@ -131,12 +135,13 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
   const memoryQuery = useQuery(memoryQueries.list(projectId, filters));
   const proposalsQuery = useQuery(memoryQueries.proposals(projectId, "pending"));
+  const privacyQuery = useQuery(privacySettingsQueries.detail());
 
   const summary = summaryQuery.data;
   const project = summary?.project;
   const readOnly = Boolean(summary?.runtime.read_only);
   const busy = summaryQuery.isPending || memoryQuery.isPending;
-  const errors = [summaryQuery.error, memoryQuery.error, proposalsQuery.error]
+  const errors = [summaryQuery.error, memoryQuery.error, proposalsQuery.error, privacyQuery.error]
     .filter((error): error is Error => error instanceof Error)
     .map((error) => error.message);
 
@@ -150,6 +155,21 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
     void queryClient.invalidateQueries({ queryKey: memoryQueryKeys.all });
   }
 
+  const projectVisibilityMutation = useMutation({
+    ...projectMutations.update(projectId),
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData(memoryQueryKeys.workspaceSummary(projectId), (current: typeof summary) =>
+        current ? { ...current, project: { ...current.project, ...updatedProject } } : current,
+      );
+      queryClient.setQueryData(projectQueryKeys.detail(projectId), updatedProject);
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      if (updatedProject.is_hidden && !privacyQuery.data?.show_hidden_items) {
+        navigate("/projects");
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: memoryQueryKeys.all });
+    },
+  });
   const createMutation = useMutation({
     mutationFn: () => createMemoryItem(projectId, draftToPayload(createDraft)),
     onSuccess: () => {
@@ -213,6 +233,13 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
       return;
     }
     conflictMutation.mutate();
+  }
+
+  function changeProjectHidden(isHidden: boolean) {
+    if (readOnly || projectVisibilityMutation.isPending) {
+      return;
+    }
+    projectVisibilityMutation.mutate({ is_hidden: isHidden });
   }
 
   return (
@@ -348,6 +375,26 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                 <Link className="workspace-secondary-link" to={`/projects/${projectId}/story-lines`}>
                   Открыть линии
                 </Link>
+              </article>
+
+              <article className="workspace-panel workspace-panel--settings" aria-label="Настройки проекта">
+                <div className="workspace-panel__title">
+                  <Settings2 size={18} aria-hidden="true" />
+                  <h2>Настройки проекта</h2>
+                </div>
+                <label className="workspace-hidden-toggle">
+                  <span>Скрытый проект</span>
+                  <input
+                    checked={summary.project.is_hidden}
+                    disabled={readOnly || projectVisibilityMutation.isPending}
+                    name="project-is-hidden"
+                    onChange={(event) => changeProjectHidden(event.target.checked)}
+                    type="checkbox"
+                  />
+                </label>
+                <span className="workspace-empty-line">
+                  {summary.project.is_hidden ? "скрыт из обычных списков" : "показывается в списке проектов"}
+                </span>
               </article>
             </section>
           </>

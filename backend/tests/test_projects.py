@@ -44,6 +44,7 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
     assert project["synopsis"] == "Memory noir"
     assert project["active_provider_id"] == provider_id
     assert project["active_model_id"] == model_id
+    assert project["is_hidden"] is False
     assert set(project) == {
         "id",
         "title",
@@ -52,6 +53,7 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
         "active_provider_id",
         "active_model_id",
         "expansion_policy",
+        "is_hidden",
         "created_at",
         "updated_at",
         "archived_at",
@@ -78,6 +80,38 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
     listed_after_archive = client.get("/api/projects")
     assert listed_after_archive.status_code == 200
     assert listed_after_archive.json() == []
+
+
+def test_hidden_projects_follow_privacy_visibility(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    _enable_ai(client)
+
+    project = client.post("/api/projects", json={"title": "Hidden draft"}).json()
+
+    hidden = client.patch(f"/api/projects/{project['id']}", json={"is_hidden": True})
+
+    assert hidden.status_code == 200
+    assert hidden.json()["is_hidden"] is True
+    assert client.get("/api/projects").json() == []
+    assert client.get(f"/api/projects/{project['id']}").status_code == 404
+    assert client.get(f"/api/projects/{project['id']}/workspace-summary").status_code == 404
+    assert client.delete(f"/api/projects/{project['id']}").status_code == 404
+
+    privacy = client.put("/api/settings/privacy", json={"show_hidden_items": True})
+
+    assert privacy.status_code == 200
+    assert [item["id"] for item in client.get("/api/projects").json()] == [project["id"]]
+    loaded = client.get(f"/api/projects/{project['id']}")
+    assert loaded.status_code == 200
+    assert loaded.json()["is_hidden"] is True
+
+    unhidden = client.patch(f"/api/projects/{project['id']}", json={"is_hidden": False})
+
+    assert unhidden.status_code == 200
+    assert unhidden.json()["is_hidden"] is False
+    assert client.put("/api/settings/privacy", json={"show_hidden_items": False}).status_code == 200
+    assert [item["id"] for item in client.get("/api/projects").json()] == [project["id"]]
 
 
 def test_project_writes_require_available_ai(tmp_path, monkeypatch):

@@ -6,6 +6,7 @@ export type Project = {
   active_provider_id: string | null;
   active_model_id: string | null;
   expansion_policy: string;
+  is_hidden: boolean;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -340,6 +341,16 @@ export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
   synopsis?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
+};
+
+export type ProjectUpdatePayload = {
+  title?: string;
+  synopsis?: string | null;
+  status?: string;
+  active_provider_id?: string | null;
+  active_model_id?: string | null;
+  expansion_policy?: string;
+  is_hidden?: boolean;
 };
 
 export type ChapterEditorState = {

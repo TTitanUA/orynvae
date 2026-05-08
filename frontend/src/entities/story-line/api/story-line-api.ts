@@ -34,6 +34,10 @@ export async function fetchStoryLines(
   );
 }
 
+export async function fetchStoryLine(projectId: string, lineId: string): Promise<StoryLine> {
+  return requestJson<StoryLine>(`/api/projects/${projectId}/story-lines/${lineId}`);
+}
+
 export async function createStoryLine(
   projectId: string,
   payload: StoryLineCreatePayload,

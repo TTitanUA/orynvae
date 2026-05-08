@@ -10,6 +10,8 @@ import {
   ChapterPrepareRouteFromParams,
   ProjectWorkspaceIndexRedirect,
   ProjectWorkspaceRouteFromParams,
+  StoryLineCreateRouteFromParams,
+  StoryLineDetailRouteFromParams,
   StoryLinesRouteFromParams,
 } from "./route-components";
 
@@ -19,6 +21,8 @@ export const router = createBrowserRouter([
   { path: "/projects/create", element: <ProjectCreateRoute /> },
   { path: "/projects/:projectId", element: <ProjectWorkspaceRouteFromParams /> },
   { path: "/projects/:projectId/story-lines", element: <StoryLinesRouteFromParams /> },
+  { path: "/projects/:projectId/story-lines/new", element: <StoryLineCreateRouteFromParams /> },
+  { path: "/projects/:projectId/story-lines/:lineId", element: <StoryLineDetailRouteFromParams /> },
   { path: "/projects/:projectId/chapters/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/chapters/:chapterId/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/workspace", element: <ProjectWorkspaceIndexRedirect /> },

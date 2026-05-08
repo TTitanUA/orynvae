@@ -29,8 +29,8 @@ async def suggest_story_lines(
         AiActionRequest(
             action_type="suggest_story_lines",
             project_id=project.id,
-            provider_id=project.active_provider_id,
-            model_id=project.active_model_id,
+            provider_id=payload.provider_id or project.active_provider_id,
+            model_id=payload.model_id or project.active_model_id,
             input={
                 "instructions": payload.instructions,
                 "max_suggestions": payload.max_suggestions,
@@ -45,6 +45,9 @@ async def suggest_story_lines(
                 instructions=payload.instructions,
             ),
             privacy_level="project",
+            temperature=payload.temperature,
+            top_p=payload.top_p,
+            reasoning_effort=payload.reasoning_effort,
         )
     )
     output = SuggestStoryLinesOutput.model_validate(result.structured_json)

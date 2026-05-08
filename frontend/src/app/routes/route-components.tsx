@@ -3,6 +3,7 @@ import { Navigate, useParams } from "react-router-dom";
 import { HomeRoute } from "../../pages/home/HomeRoute";
 import { ChapterPrepareRoute } from "../../pages/projects/chapter-prepare/ChapterPrepareRoute";
 import { ProjectWorkspaceRoute } from "../../pages/projects/project-workspace/ProjectWorkspaceRoute";
+import { StoryLineDetailRoute } from "../../pages/projects/story-lines/StoryLineDetailRoute";
 import { StoryLinesRoute } from "../../pages/projects/story-lines/StoryLinesRoute";
 
 export function ProjectWorkspaceRouteFromParams() {
@@ -35,6 +36,29 @@ export function StoryLinesRouteFromParams() {
   }
 
   return <StoryLinesRoute projectId={projectId} />;
+}
+
+export function StoryLineCreateRouteFromParams() {
+  const { projectId } = useParams<{ projectId: string }>();
+
+  if (!projectId) {
+    return <HomeRoute />;
+  }
+
+  return <StoryLineDetailRoute key={`story-line-new-${projectId}`} projectId={projectId} />;
+}
+
+export function StoryLineDetailRouteFromParams() {
+  const { lineId, projectId } = useParams<{
+    lineId: string;
+    projectId: string;
+  }>();
+
+  if (!projectId || !lineId) {
+    return <HomeRoute />;
+  }
+
+  return <StoryLineDetailRoute key={`story-line-${lineId}`} lineId={lineId} projectId={projectId} />;
 }
 
 export function ChapterPrepareRouteFromParams() {

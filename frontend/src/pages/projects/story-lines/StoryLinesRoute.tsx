@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, History, Plus, Sparkles, X } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { Bot, Check, ChevronLeft, LoaderCircle, PlugZap, Plus, Sparkles, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { memoryQueries, memoryQueryKeys } from "../../../entities/memory";
+import { allowedModels, providerQueries, type Provider, type ProviderModel } from "../../../entities/provider";
 import {
   createStoryLine,
   storyLineQueries,
@@ -14,10 +15,10 @@ import {
   storyLineTypeLabel,
   storyLineTypeOptions,
   suggestStoryLines,
-  updateStoryLine,
   updateStoryLineStatus,
   type StoryLine,
   type StoryLineFilters,
+  type StoryLineReasoningEffort,
   type StoryLineStatus,
   type StoryLineSuggestion,
   type StoryLineType,
@@ -39,24 +40,49 @@ type StoryLineDraft = {
   priority: number;
 };
 
-const emptyDraft: StoryLineDraft = {
-  type: "custom",
-  title: "",
-  description: "",
-  current_state: "",
-  status: "proposed",
-  priority: 0,
+type Option<T extends string> = {
+  value: T;
+  label: string;
 };
 
-function lineToDraft(line: StoryLine): StoryLineDraft {
-  return {
-    type: line.type,
-    title: line.title,
-    description: line.description || "",
-    current_state: line.current_state || "",
-    status: line.status,
-    priority: line.priority,
-  };
+const reasoningEffortOptions: Option<StoryLineReasoningEffort>[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
+
+function supportedParameters(model: ProviderModel | undefined): string[] {
+  const capabilities = model?.capabilities;
+  const value =
+    capabilities && typeof capabilities === "object"
+      ? capabilities.supported_parameters
+      : undefined;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => item.toLowerCase());
+}
+
+function supportsParameter(model: ProviderModel | undefined, parameter: string): boolean {
+  const parameters = supportedParameters(model);
+  return parameters.length === 0 || parameters.includes(parameter);
+}
+
+function supportsReasoning(model: ProviderModel | undefined): boolean {
+  const parameters = supportedParameters(model);
+  return (
+    parameters.includes("reasoning") ||
+    parameters.includes("reasoning_effort") ||
+    parameters.includes("reasoning.effort")
+  );
+}
+
+function selectableStoryProviders(providers: Provider[]): Provider[] {
+  return providers.filter(
+    (provider) => provider.is_enabled && !provider.last_error && allowedModels(provider).length > 0,
+  );
 }
 
 function suggestionToDraft(suggestion: StoryLineSuggestion, status: StoryLineStatus): StoryLineDraft {
@@ -84,18 +110,68 @@ function draftToPayload(draft: StoryLineDraft) {
 export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<StoryLineFilters>({});
-  const [draft, setDraft] = useState<StoryLineDraft>(emptyDraft);
-  const [editingLine, setEditingLine] = useState<StoryLine | null>(null);
   const [suggestInstructions, setSuggestInstructions] = useState("");
   const [suggestions, setSuggestions] = useState<StoryLineSuggestion[]>([]);
-  const [selectedProgressLine, setSelectedProgressLine] = useState<StoryLine | null>(null);
+  const [selectedProviderIdDraft, setSelectedProviderId] = useState("");
+  const [selectedModelIdDraft, setSelectedModelId] = useState("");
+  const [temperature, setTemperature] = useState(0.7);
+  const [topP, setTopP] = useState(0.9);
+  const [reasoningEffort, setReasoningEffort] = useState<StoryLineReasoningEffort | "">("");
 
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
+  const providersQuery = useQuery(providerQueries.list());
   const linesQuery = useQuery(storyLineQueries.list(projectId, filters));
-  const progressQuery = useQuery(storyLineQueries.progress(projectId, selectedProgressLine?.id || null));
 
   const summary = summaryQuery.data;
   const readOnly = Boolean(summary?.runtime.read_only);
+  const providers = useMemo(
+    () => (Array.isArray(providersQuery.data) ? providersQuery.data : []),
+    [providersQuery.data],
+  );
+  const selectableProviders = useMemo(() => selectableStoryProviders(providers), [providers]);
+  const projectProvider = selectableProviders.find(
+    (provider) => provider.id === summary?.project.active_provider_id,
+  );
+  const defaultProvider = selectableProviders.find((provider) => provider.is_default);
+  const selectedProviderId =
+    selectedProviderIdDraft || (projectProvider || defaultProvider || selectableProviders[0])?.id || "";
+  const selectedProvider = useMemo(
+    () => providers.find((provider) => provider.id === selectedProviderId),
+    [providers, selectedProviderId],
+  );
+  const models = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
+  const projectModel =
+    summary?.project.active_provider_id === selectedProvider?.id
+      ? models.find((model) => model.model_id === summary?.project.active_model_id)
+      : undefined;
+  const defaultModel = models.find((model) => model.model_id === selectedProvider?.default_model_id);
+  const fallbackModelId = (projectModel || defaultModel || models[0])?.model_id || "";
+  const selectedModelId = models.some((model) => model.model_id === selectedModelIdDraft)
+    ? selectedModelIdDraft
+    : fallbackModelId;
+  const selectedModel = models.find((model) => model.model_id === selectedModelId);
+  const selectedProviderAvailable = selectableProviders.some(
+    (provider) => provider.id === selectedProviderId,
+  );
+  const supportsTemperature = supportsParameter(selectedModel, "temperature");
+  const supportsTopP = supportsParameter(selectedModel, "top_p");
+  const supportsModelReasoning = supportsReasoning(selectedModel);
+  const canSuggest = Boolean(!readOnly && selectedProviderAvailable && selectedProvider && selectedModel);
+  const suggestBlockedReason = providersQuery.isPending
+    ? "Загрузка моделей"
+    : readOnly
+      ? summary?.runtime.reason || "AI недоступен"
+      : !selectedProvider
+        ? "Выбери AI-провайдер"
+        : !selectedModel
+          ? "Выбери разрешенную модель"
+          : selectedProvider.last_error || undefined;
+  const activeProviderLabel =
+    selectedProvider && selectedModel
+      ? `${selectedProvider.name} · ${selectedModel.display_name} · ${
+          selectedProvider.is_external ? "внешний" : "локальный"
+        }`
+      : "AI не выбран";
   const lines = useMemo(() => linesQuery.data || [], [linesQuery.data]);
   const groupedLines = useMemo(
     () => ({
@@ -107,7 +183,7 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
     }),
     [lines],
   );
-  const errors = [summaryQuery.error, linesQuery.error, progressQuery.error]
+  const errors = [summaryQuery.error, providersQuery.error, linesQuery.error]
     .filter((error): error is Error => error instanceof Error)
     .map((error) => error.message);
 
@@ -119,16 +195,6 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
   const createMutation = useMutation({
     mutationFn: (payload: StoryLineDraft) => createStoryLine(projectId, draftToPayload(payload)),
     onSuccess: () => {
-      setDraft(emptyDraft);
-      invalidateLines();
-    },
-  });
-  const updateMutation = useMutation({
-    mutationFn: ({ lineId, payload }: { lineId: string; payload: StoryLineDraft }) =>
-      updateStoryLine(projectId, lineId, draftToPayload(payload)),
-    onSuccess: () => {
-      setEditingLine(null);
-      setDraft(emptyDraft);
       invalidateLines();
     },
   });
@@ -142,26 +208,14 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
       suggestStoryLines(projectId, {
         instructions: suggestInstructions.trim() || null,
         max_suggestions: 5,
+        provider_id: selectedProviderId || null,
+        model_id: selectedModelId || null,
+        temperature: supportsTemperature ? temperature : 0.7,
+        top_p: supportsTopP ? topP : null,
+        reasoning_effort: supportsModelReasoning && reasoningEffort ? reasoningEffort : null,
       }),
     onSuccess: (result) => setSuggestions(result.story_lines),
   });
-
-  function submitDraft(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!draft.title.trim() || readOnly) {
-      return;
-    }
-    if (editingLine) {
-      updateMutation.mutate({ lineId: editingLine.id, payload: draft });
-      return;
-    }
-    createMutation.mutate(draft);
-  }
-
-  function beginEdit(line: StoryLine) {
-    setEditingLine(line);
-    setDraft(lineToDraft(line));
-  }
 
   function createFromSuggestion(suggestion: StoryLineSuggestion, status: StoryLineStatus) {
     if (readOnly) {
@@ -184,6 +238,12 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
           </div>
           <div className="story-lines-route__status">
             <StatusPill label={readOnly ? "Только чтение" : "AI доступен"} tone={readOnly ? "warning" : "ready"} />
+            {!readOnly && (
+              <Link to={`/projects/${encodeURIComponent(projectId)}/story-lines/new`}>
+                <Plus size={16} aria-hidden="true" />
+                Новая линия
+              </Link>
+            )}
             <Link to={`/projects/${projectId}/chapters/prepare`}>Подготовить главу</Link>
           </div>
         </header>
@@ -233,36 +293,32 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
           <main className="story-lines-route__main">
             <LineGroup
               lines={groupedLines.active}
-              onEdit={beginEdit}
-              onProgress={setSelectedProgressLine}
               onStatus={(line, status) => statusMutation.mutate({ lineId: line.id, status })}
+              projectId={projectId}
               readOnly={readOnly}
               title="Активные"
               updating={statusMutation.isPending}
             />
             <LineGroup
               lines={groupedLines.proposed}
-              onEdit={beginEdit}
-              onProgress={setSelectedProgressLine}
               onStatus={(line, status) => statusMutation.mutate({ lineId: line.id, status })}
+              projectId={projectId}
               readOnly={readOnly}
               title="Требуют решения"
               updating={statusMutation.isPending}
             />
             <LineGroup
               lines={groupedLines.sleeping}
-              onEdit={beginEdit}
-              onProgress={setSelectedProgressLine}
               onStatus={(line, status) => statusMutation.mutate({ lineId: line.id, status })}
+              projectId={projectId}
               readOnly={readOnly}
               title="Спящие"
               updating={statusMutation.isPending}
             />
             <LineGroup
               lines={[...groupedLines.completed, ...groupedLines.rejected]}
-              onEdit={beginEdit}
-              onProgress={setSelectedProgressLine}
               onStatus={(line, status) => statusMutation.mutate({ lineId: line.id, status })}
+              projectId={projectId}
               readOnly={readOnly}
               title="Закрытые"
               updating={statusMutation.isPending}
@@ -270,23 +326,6 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
           </main>
 
           <aside className="story-lines-route__side">
-            <LineDraftForm
-              draft={draft}
-              mode={editingLine ? "edit" : "create"}
-              onCancel={
-                editingLine
-                  ? () => {
-                      setEditingLine(null);
-                      setDraft(emptyDraft);
-                    }
-                  : undefined
-              }
-              onChange={setDraft}
-              onSubmit={submitDraft}
-              readOnly={readOnly}
-              submitting={createMutation.isPending || updateMutation.isPending}
-            />
-
             <section className="story-lines-panel" aria-label="AI-предложения линий">
               <div className="story-lines-panel__title">
                 <Sparkles size={18} aria-hidden="true" />
@@ -296,11 +335,126 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
                 className="story-lines-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (!readOnly) {
+                  if (canSuggest) {
                     suggestMutation.mutate();
                   }
                 }}
               >
+                <section className="story-lines-agent-config" aria-label="Настройки модели">
+                  <div className="story-lines-agent-config__title">
+                    <Bot size={17} aria-hidden="true" />
+                    <span>Модель</span>
+                    <small>{activeProviderLabel}</small>
+                    {!canSuggest && (
+                      <Link
+                        className="story-lines-agent-config__settings"
+                        title="Настроить AI"
+                        to="/settings/providers"
+                      >
+                        <PlugZap size={15} aria-hidden="true" />
+                      </Link>
+                    )}
+                  </div>
+
+                  <div className="story-lines-two-column">
+                    <label className="story-lines-agent-field">
+                      <span>Провайдер</span>
+                      <select
+                        disabled={readOnly || providersQuery.isPending || suggestMutation.isPending}
+                        name="story-lines-provider"
+                        onChange={(event) => {
+                          setSelectedProviderId(event.target.value);
+                          setSelectedModelId("");
+                        }}
+                        value={selectedProviderId}
+                      >
+                        {selectableProviders.length === 0 && <option value="">Нет доступных</option>}
+                        {selectableProviders.map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="story-lines-agent-field">
+                      <span>Модель</span>
+                      <select
+                        disabled={readOnly || suggestMutation.isPending || !selectedProvider}
+                        name="story-lines-model"
+                        onChange={(event) => setSelectedModelId(event.target.value)}
+                        value={selectedModelId}
+                      >
+                        {models.length === 0 && <option value="">Нет разрешенных</option>}
+                        {models.map((model) => (
+                          <option key={model.id} value={model.model_id}>
+                            {model.display_name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="story-lines-parameter-grid">
+                    {supportsTemperature && (
+                      <label className="story-lines-agent-range">
+                        <span>Температура</span>
+                        <input
+                          disabled={readOnly || suggestMutation.isPending}
+                          max="2"
+                          min="0"
+                          name="story-lines-temperature"
+                          onChange={(event) => setTemperature(Number(event.target.value))}
+                          step="0.05"
+                          type="range"
+                          value={temperature}
+                        />
+                        <output>{temperature.toFixed(2)}</output>
+                      </label>
+                    )}
+                    {supportsTopP && (
+                      <label className="story-lines-agent-range">
+                        <span>Top P</span>
+                        <input
+                          disabled={readOnly || suggestMutation.isPending}
+                          max="1"
+                          min="0"
+                          name="story-lines-top-p"
+                          onChange={(event) => setTopP(Number(event.target.value))}
+                          step="0.05"
+                          type="range"
+                          value={topP}
+                        />
+                        <output>{topP.toFixed(2)}</output>
+                      </label>
+                    )}
+                    {supportsModelReasoning && (
+                      <label className="story-lines-agent-field">
+                        <span>Reasoning</span>
+                        <select
+                          disabled={readOnly || suggestMutation.isPending}
+                          name="story-lines-reasoning"
+                          onChange={(event) =>
+                            setReasoningEffort(event.target.value as StoryLineReasoningEffort | "")
+                          }
+                          value={reasoningEffort}
+                        >
+                          <option value="">Auto</option>
+                          {reasoningEffortOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
+
+                  {!canSuggest && suggestBlockedReason && (
+                    <NoticeBlock tone="error">
+                      {suggestBlockedReason} <Link to="/settings/providers">Настроить AI</Link>
+                    </NoticeBlock>
+                  )}
+                </section>
                 <textarea
                   disabled={readOnly}
                   onChange={(event) => setSuggestInstructions(event.target.value)}
@@ -308,8 +462,12 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
                   rows={4}
                   value={suggestInstructions}
                 />
-                <button disabled={readOnly || suggestMutation.isPending} type="submit">
-                  <Sparkles size={15} aria-hidden="true" />
+                <button disabled={!canSuggest || suggestMutation.isPending} type="submit">
+                  {suggestMutation.isPending ? (
+                    <LoaderCircle className="is-spinning" size={15} aria-hidden="true" />
+                  ) : (
+                    <Sparkles size={15} aria-hidden="true" />
+                  )}
                   Спросить AI
                 </button>
               </form>
@@ -344,28 +502,6 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
                 ))}
               </div>
             </section>
-
-            <section className="story-lines-panel" aria-label="Прогресс линии">
-              <div className="story-lines-panel__title">
-                <History size={18} aria-hidden="true" />
-                <h2>Прогресс</h2>
-              </div>
-              {!selectedProgressLine && <span className="story-lines-empty">выберите линию</span>}
-              {selectedProgressLine && (
-                <div className="story-lines-progress">
-                  <strong>{selectedProgressLine.title}</strong>
-                  {(progressQuery.data?.progress || []).map((item) => (
-                    <div key={item.id}>
-                      <span>{item.event_summary || "Изменение линии"}</span>
-                      {item.after_state && <p>{item.after_state}</p>}
-                    </div>
-                  ))}
-                  {progressQuery.data && progressQuery.data.progress.length === 0 && (
-                    <span className="story-lines-empty">записей прогресса пока нет</span>
-                  )}
-                </div>
-              )}
-            </section>
           </aside>
         </div>
       </div>
@@ -375,17 +511,15 @@ export function StoryLinesRoute({ projectId }: StoryLinesRouteProps) {
 
 function LineGroup({
   lines,
-  onEdit,
-  onProgress,
   onStatus,
+  projectId,
   readOnly,
   title,
   updating,
 }: {
   lines: StoryLine[];
-  onEdit: (line: StoryLine) => void;
-  onProgress: (line: StoryLine) => void;
   onStatus: (line: StoryLine, status: StoryLineStatus) => void;
+  projectId: string;
   readOnly: boolean;
   title: string;
   updating: boolean;
@@ -409,12 +543,9 @@ function LineGroup({
             {line.description && <p>{line.description}</p>}
             {line.current_state && <p className="story-line-card__state">{line.current_state}</p>}
             <div className="story-line-card__actions">
-              <button disabled={readOnly} onClick={() => onEdit(line)} type="button">
+              <Link to={`/projects/${encodeURIComponent(projectId)}/story-lines/${encodeURIComponent(line.id)}`}>
                 Правка
-              </button>
-              <button onClick={() => onProgress(line)} type="button">
-                История
-              </button>
+              </Link>
               <button disabled={readOnly || updating} onClick={() => onStatus(line, "active")} type="button">
                 <Check size={15} aria-hidden="true" />
                 Активна
@@ -434,87 +565,6 @@ function LineGroup({
         ))}
         {lines.length === 0 && <NoticeBlock>В этой группе пока пусто</NoticeBlock>}
       </div>
-    </section>
-  );
-}
-
-function LineDraftForm({
-  draft,
-  mode,
-  onCancel,
-  onChange,
-  onSubmit,
-  readOnly,
-  submitting,
-}: {
-  draft: StoryLineDraft;
-  mode: "create" | "edit";
-  onCancel?: () => void;
-  onChange: (draft: StoryLineDraft) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  readOnly: boolean;
-  submitting: boolean;
-}) {
-  return (
-    <section className="story-lines-panel" aria-label={mode === "create" ? "Добавить линию" : "Правка линии"}>
-      <div className="story-lines-panel__title">
-        <Plus size={18} aria-hidden="true" />
-        <h2>{mode === "create" ? "Добавить линию" : "Правка линии"}</h2>
-      </div>
-      <form className="story-lines-form" onSubmit={onSubmit}>
-        <select
-          disabled={readOnly}
-          onChange={(event) => onChange({ ...draft, type: event.target.value as StoryLineType })}
-          value={draft.type}
-        >
-          {storyLineTypeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          disabled={readOnly}
-          onChange={(event) => onChange({ ...draft, status: event.target.value as StoryLineStatus })}
-          value={draft.status}
-        >
-          {storyLineStatusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          disabled={readOnly}
-          onChange={(event) => onChange({ ...draft, title: event.target.value })}
-          placeholder="Название линии"
-          value={draft.title}
-        />
-        <textarea
-          disabled={readOnly}
-          onChange={(event) => onChange({ ...draft, description: event.target.value })}
-          placeholder="Зачем за ней следить"
-          rows={3}
-          value={draft.description}
-        />
-        <textarea
-          disabled={readOnly}
-          onChange={(event) => onChange({ ...draft, current_state: event.target.value })}
-          placeholder="Текущее состояние"
-          rows={3}
-          value={draft.current_state}
-        />
-        <div className="story-lines-form__actions">
-          <button disabled={readOnly || submitting || !draft.title.trim()} type="submit">
-            {mode === "create" ? "Добавить" : "Сохранить"}
-          </button>
-          {onCancel && (
-            <button onClick={onCancel} type="button">
-              Отмена
-            </button>
-          )}
-        </div>
-      </form>
     </section>
   );
 }

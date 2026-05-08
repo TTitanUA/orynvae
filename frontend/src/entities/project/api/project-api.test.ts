@@ -5,6 +5,7 @@ import {
   confirmStartStory,
   projectStatusLabel,
   refineStartStory,
+  updateProject,
   type Project,
 } from "..";
 
@@ -21,6 +22,7 @@ function project(overrides: Partial<Project>): Project {
     active_provider_id: null,
     active_model_id: null,
     expansion_policy: "ask",
+    is_hidden: false,
     created_at: "2026-05-02T00:00:00",
     updated_at: "2026-05-02T00:00:00",
     archived_at: null,
@@ -35,6 +37,28 @@ describe("projectStatusLabel", () => {
 
   it("marks archived projects", () => {
     expect(projectStatusLabel(project({ archived_at: "2026-05-02T01:00:00" }))).toBe("Архив");
+  });
+});
+
+describe("project API", () => {
+  it("patches project hidden visibility", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(project({ is_hidden: true })), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateProject("project-1", { is_hidden: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ is_hidden: true }),
+      }),
+    );
   });
 });
 

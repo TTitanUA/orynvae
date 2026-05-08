@@ -13,6 +13,7 @@ import type {
   ProjectSetupAnalysis,
   ProjectSetupAnalysisPayload,
   ProjectSetupCreatePayload,
+  ProjectUpdatePayload,
   ProjectWorkspace,
   ProjectWorkspacePayload,
 } from "../model/types";
@@ -26,6 +27,16 @@ export async function fetchProjects(): Promise<Project[]> {
 
 export async function fetchProject(projectId: string): Promise<Project> {
   return requestJson<Project>(`/api/projects/${projectId}`);
+}
+
+export async function updateProject(
+  projectId: string,
+  payload: ProjectUpdatePayload,
+): Promise<Project> {
+  return requestJson<Project>(`/api/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function analyzeStartStory(

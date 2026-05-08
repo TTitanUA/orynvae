@@ -4,6 +4,7 @@ import sqlite3
 from uuid import uuid4
 
 from app.models.projects import ProjectCreate, ProjectRecord, ProjectUpdate
+from app.services import settings_store
 from app.storage.migrations import apply_migrations
 from app.storage.paths import get_database_path
 
@@ -32,16 +33,27 @@ def _project_from_row(row: sqlite3.Row) -> ProjectRecord:
         active_provider_id=row["active_provider_id"],
         active_model_id=row["active_model_id"],
         expansion_policy=row["expansion_policy"],
+        is_hidden=bool(row["is_hidden"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         archived_at=row["archived_at"],
     )
 
 
-def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
+def _include_hidden_by_privacy() -> bool:
+    return settings_store.get_privacy_settings().show_hidden_items
+
+
+def list_projects(
+    *,
+    include_archived: bool = False,
+    include_hidden: bool | None = None,
+) -> list[ProjectRecord]:
     conditions: list[str] = []
     if not include_archived:
         conditions.append("archived_at IS NULL")
+    if not (include_hidden if include_hidden is not None else _include_hidden_by_privacy()):
+        conditions.append("is_hidden = 0")
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with _connection() as connection:
@@ -55,6 +67,7 @@ def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
               active_provider_id,
               active_model_id,
               expansion_policy,
+              is_hidden,
               created_at,
               updated_at,
               archived_at
@@ -66,10 +79,14 @@ def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
     return [_project_from_row(row) for row in rows]
 
 
-def get_project(project_id: str) -> ProjectRecord | None:
+def get_project(project_id: str, *, include_hidden: bool | None = None) -> ProjectRecord | None:
+    conditions = ["id = ?", "archived_at IS NULL"]
+    if not (include_hidden if include_hidden is not None else _include_hidden_by_privacy()):
+        conditions.append("is_hidden = 0")
+
     with _connection() as connection:
         row = connection.execute(
-            """
+            f"""
             SELECT
               id,
               title,
@@ -78,11 +95,12 @@ def get_project(project_id: str) -> ProjectRecord | None:
               active_provider_id,
               active_model_id,
               expansion_policy,
+              is_hidden,
               created_at,
               updated_at,
               archived_at
             FROM projects
-            WHERE id = ? AND archived_at IS NULL
+            WHERE {' AND '.join(conditions)}
             """,
             (project_id,),
         ).fetchone()
@@ -101,9 +119,10 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
               status,
               active_provider_id,
               active_model_id,
-              expansion_policy
+              expansion_policy,
+              is_hidden
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 project_id,
@@ -113,11 +132,12 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
                 payload.active_provider_id,
                 payload.active_model_id,
                 payload.expansion_policy,
+                int(payload.is_hidden),
             ),
         )
         connection.commit()
 
-    project = get_project(project_id)
+    project = get_project(project_id, include_hidden=True)
     if project is None:
         raise RuntimeError("Created project could not be loaded")
     return project
@@ -139,6 +159,8 @@ def update_project(project_id: str, payload: ProjectUpdate) -> ProjectRecord | N
         values["status"] = _clean(values["status"])
     if "expansion_policy" in values:
         values["expansion_policy"] = _clean(values["expansion_policy"])
+    if "is_hidden" in values:
+        values["is_hidden"] = int(bool(values["is_hidden"]))
     if not values:
         return current
 
@@ -153,10 +175,13 @@ def update_project(project_id: str, payload: ProjectUpdate) -> ProjectRecord | N
             parameters,
         )
         connection.commit()
-    return get_project(project_id)
+    return get_project(project_id, include_hidden=True)
 
 
 def archive_project(project_id: str) -> bool:
+    if get_project(project_id) is None:
+        return False
+
     with _connection() as connection:
         cursor = connection.execute(
             """

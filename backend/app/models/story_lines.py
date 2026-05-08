@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.ai_actions import ReasoningEffort
 from app.models.story_runtime import (
     StoryLineCreate,
     StoryLineProgressRecord,
@@ -31,6 +32,19 @@ class StoryLineStatusRequest(StoryLineApiModel):
 class StoryLineSuggestRequest(StoryLineApiModel):
     instructions: str | None = Field(default=None, max_length=4000)
     max_suggestions: int = Field(default=5, ge=1, le=7)
+    provider_id: str | None = None
+    model_id: str | None = None
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    top_p: float | None = Field(default=None, ge=0, le=1)
+    reasoning_effort: ReasoningEffort | None = None
+
+    @field_validator("instructions", "provider_id", "model_id", mode="before")
+    @classmethod
+    def _clean_optional_text(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        return stripped or None
 
 
 class StoryLineSuggestion(StoryLineApiModel):

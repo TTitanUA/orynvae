@@ -110,6 +110,10 @@ def test_story_lines_can_be_managed_suggested_and_read_with_progress(tmp_path, m
     assert listed.status_code == 200
     assert [entry["title"] for entry in listed.json()] == ["Who sent the death memory?"]
 
+    fetched = client.get(f"/api/projects/{project_id}/story-lines/{line['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["title"] == "Who sent the death memory?"
+
     patched = client.patch(
         f"/api/projects/{project_id}/story-lines/{line['id']}",
         json={"current_state": "The archive may be involved."},
@@ -150,11 +154,23 @@ def test_story_lines_can_be_managed_suggested_and_read_with_progress(tmp_path, m
     monkeypatch.setattr(ai_service, "create_adapter", lambda provider, api_key: adapter)
     suggested = client.post(
         f"/api/projects/{project_id}/story-lines/suggest",
-        json={"instructions": "Suggest one threat line.", "max_suggestions": 1},
+        json={
+            "instructions": "Suggest one threat line.",
+            "max_suggestions": 1,
+            "provider_id": project["active_provider_id"],
+            "model_id": project["active_model_id"],
+            "temperature": 0.35,
+            "top_p": 0.8,
+            "reasoning_effort": "medium",
+        },
     )
     assert suggested.status_code == 200
     assert suggested.json()["story_lines"][0]["title"] == "Archive starts watching"
     assert len(story_runtime_store.list_story_lines(project_id)) == 1
+    assert adapter.complete_calls[0]["model_id"] == project["active_model_id"]
+    assert adapter.complete_calls[0]["temperature"] == 0.35
+    assert adapter.complete_calls[0]["top_p"] == 0.8
+    assert adapter.complete_calls[0]["reasoning_effort"] == "medium"
     request_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert request_payload["action_type"] == "suggest_story_lines"
     assert request_payload["context"]["story_lines"][0]["title"] == "Who sent the death memory?"

@@ -222,6 +222,25 @@
   padding-top: 0.5rem;
 }
 
+.workspace-hidden-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-weight: 700;
+  padding: 0.75rem;
+}
+
+.workspace-hidden-toggle input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-accent);
+}
+
 .workspace-section-heading {
   justify-content: space-between;
   min-width: 0;

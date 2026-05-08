@@ -31,12 +31,17 @@ export function ProjectList({ projects }: ProjectListProps) {
             <h2>
               <Link to={`/projects/${encodeURIComponent(project.id)}`}>{project.title}</Link>
             </h2>
+            {project.is_hidden && <span className="project-card__hidden">Скрыт</span>}
           </div>
           {project.synopsis && <p className="project-card__synopsis">{project.synopsis}</p>}
           <dl className="project-card__meta">
             <div>
               <dt>Статус</dt>
               <dd>{project.status}</dd>
+            </div>
+            <div>
+              <dt>Видимость</dt>
+              <dd>{project.is_hidden ? "скрытый" : "обычный"}</dd>
             </div>
             <div>
               <dt>ID</dt>

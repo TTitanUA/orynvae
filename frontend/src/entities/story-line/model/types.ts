@@ -1,6 +1,7 @@
 export type StoryLineType = "character" | "mystery" | "relationship" | "threat" | "theme" | "custom";
 
 export type StoryLineStatus = "proposed" | "active" | "sleeping" | "completed" | "rejected";
+export type StoryLineReasoningEffort = "low" | "medium" | "high";
 
 export type StoryLine = {
   id: string;
@@ -63,6 +64,11 @@ export type StoryLineSuggestion = {
 export type StoryLineSuggestPayload = {
   instructions?: string | null;
   max_suggestions?: number;
+  provider_id?: string | null;
+  model_id?: string | null;
+  temperature?: number;
+  top_p?: number | null;
+  reasoning_effort?: StoryLineReasoningEffort | null;
 };
 
 export type StoryLineSuggestResult = {

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchStoryLine,
   fetchStoryLineProgress,
   fetchStoryLines,
   suggestStoryLines,
@@ -19,6 +20,12 @@ describe("story line API", () => {
       "list",
       "project-1",
       { status: "active" },
+    ]);
+    expect(storyLineQueryKeys.detail("project-1", "line-1")).toEqual([
+      "story-lines",
+      "detail",
+      "project-1",
+      "line-1",
     ]);
     expect(storyLineQueryKeys.progress("project-1", "line-1")).toEqual([
       "story-lines",
@@ -60,26 +67,48 @@ describe("story line API", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    await fetchStoryLine("project-1", "line-1");
     await fetchStoryLineProgress("project-1", "line-1");
     await updateStoryLineStatus("project-1", "line-1", "active");
-    await suggestStoryLines("project-1", { instructions: "more threat", max_suggestions: 2 });
+    await suggestStoryLines("project-1", {
+      instructions: "more threat",
+      max_suggestions: 2,
+      provider_id: "provider-1",
+      model_id: "story-model",
+      temperature: 0.4,
+      top_p: 0.8,
+      reasoning_effort: "medium",
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "/api/projects/project-1/story-lines/line-1/progress",
+      "/api/projects/project-1/story-lines/line-1",
       { headers: { "Content-Type": "application/json" } },
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      "/api/projects/project-1/story-lines/line-1/progress",
+      { headers: { "Content-Type": "application/json" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       "/api/projects/project-1/story-lines/line-1/status",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ status: "active" }) }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      4,
       "/api/projects/project-1/story-lines/suggest",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ instructions: "more threat", max_suggestions: 2 }),
+        body: JSON.stringify({
+          instructions: "more threat",
+          max_suggestions: 2,
+          provider_id: "provider-1",
+          model_id: "story-model",
+          temperature: 0.4,
+          top_p: 0.8,
+          reasoning_effort: "medium",
+        }),
       }),
     );
   });
