@@ -6,7 +6,8 @@
 
 html {
   min-width: var(--app-min-width);
-  overflow-x: hidden;
+  min-height: var(--app-min-height);
+  overflow-x: auto;
   color: var(--color-text);
   background: var(--color-page);
   font-family:
@@ -16,13 +17,14 @@ html {
 
 body {
   min-width: var(--app-min-width);
+  min-height: var(--app-min-height);
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 #root {
   min-width: var(--app-min-width);
-  min-height: 100vh;
+  min-height: max(100vh, var(--app-min-height));
 }
 
 button,

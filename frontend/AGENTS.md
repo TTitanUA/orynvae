@@ -25,7 +25,7 @@
 
 ## MVP v2 frontend constraints
 
-- The application is desktop-only for MVP v2. The minimum supported viewport width is 1366px.
+- The application is desktop-only for MVP v2. The minimum supported viewport is 1980px by 1024px.
 - Do not add mobile/tablet breakpoints, hamburger navigation, phone-style full-width controls, or single-column mobile layouts unless the product requirement explicitly changes.
 - Markdown editor work should use the `OrynvaeMarkdownEditor` direction from `docs/technical-stack-v2.md`: CodeMirror 6 core, Orynvae editor layer, markdown as source of truth.
 - When active AI is unavailable, mutating creative UI must be disabled or route to provider setup; existing content remains readable.
@@ -35,5 +35,5 @@
 
 - Root `AGENTS.md` verification rules still apply.
 - For visible frontend changes, run automated checks and manually verify the affected flow in Chrome DevTools.
-- For visible frontend changes, verify at 1366px width and at wider desktop sizes.
-- If support below 1366px is requested, ask for explicit confirmation before implementing it.
+- For visible frontend changes, verify at 1980px by 1024px and at wider desktop sizes.
+- If support below 1980px by 1024px is requested, ask for explicit confirmation before implementing it.

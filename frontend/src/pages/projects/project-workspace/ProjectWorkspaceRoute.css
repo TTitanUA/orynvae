@@ -1,7 +1,6 @@
 .workspace-route {
   display: grid;
   width: 100%;
-  max-width: 86rem;
   gap: 1.25rem;
 }
 
@@ -48,7 +47,7 @@
 
 .workspace-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 23rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   min-width: 0;
 }
@@ -253,7 +252,7 @@
 
 .workspace-memory__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
 }
@@ -403,14 +402,4 @@ select:disabled,
 textarea:disabled {
   cursor: not-allowed;
   opacity: 0.62;
-}
-
-@media (max-width: 90rem) {
-  .memory-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .memory-filters label {
-    min-height: 2.625rem;
-  }
 }

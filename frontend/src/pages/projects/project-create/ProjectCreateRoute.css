@@ -1,7 +1,6 @@
 .project-create-route {
   display: grid;
   width: 100%;
-  max-width: 78rem;
   gap: 1.25rem;
 }
 
@@ -70,7 +69,7 @@
 
 .start-story-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
 }

@@ -1,7 +1,7 @@
 .provider-route {
   display: grid;
+  width: 100%;
   gap: 1.25rem;
-  max-width: 76rem;
 }
 
 .provider-route__header {
@@ -63,7 +63,7 @@
 
 .provider-route__layout {
   display: grid;
-  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
 }
