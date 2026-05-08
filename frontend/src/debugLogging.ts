@@ -146,6 +146,7 @@ function installSystemListeners(): void {
 function fetchCategory(url: string): DebugLogCategory {
   const path = urlPath(url);
   if (
+    path.startsWith("/api/ai-actions/") ||
     path.endsWith("/chapter-editor/assist") ||
     path.endsWith("/canon/check") ||
     path.endsWith("/projects/setup/analyze") ||

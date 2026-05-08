@@ -56,6 +56,10 @@ describe("initializeFrontendDebugLogging", () => {
       method: "POST",
       body: JSON.stringify({ idea_text: "test" }),
     });
+    await window.fetch("/api/ai-actions/execute", {
+      method: "POST",
+      body: JSON.stringify({ action_type: "summarize_session" }),
+    });
     await Promise.resolve();
     await Promise.resolve();
 
@@ -71,6 +75,14 @@ describe("initializeFrontendDebugLogging", () => {
     ).toBe(true);
     expect(
       entries.some((entry) => entry.category === "LLM" && entry.operation === "fetch.llm.end"),
+    ).toBe(true);
+    expect(
+      entries.some(
+        (entry) =>
+          entry.category === "LLM" &&
+          entry.operation === "fetch.llm.start" &&
+          entry.payload?.url === "/api/ai-actions/execute",
+      ),
     ).toBe(true);
     expect(
       entries.some((entry) => entry.payload?.url === "/api/debug/logs/future"),
