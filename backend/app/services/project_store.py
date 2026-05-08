@@ -16,10 +16,6 @@ def _connection() -> sqlite3.Connection:
     return connection
 
 
-def _bool(value: object) -> bool:
-    return bool(int(value)) if isinstance(value, int) else bool(value)
-
-
 def _clean(value: str | None) -> str | None:
     if value is None:
         return None
@@ -30,42 +26,63 @@ def _clean(value: str | None) -> str | None:
 def _project_from_row(row: sqlite3.Row) -> ProjectRecord:
     return ProjectRecord(
         id=row["id"],
-        name=row["name"],
-        is_hidden=_bool(row["is_hidden"]),
+        title=row["title"],
+        synopsis=row["synopsis"],
+        status=row["status"],
+        active_provider_id=row["active_provider_id"],
+        active_model_id=row["active_model_id"],
+        expansion_policy=row["expansion_policy"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         archived_at=row["archived_at"],
     )
 
 
-def list_projects(*, include_archived: bool = False, include_hidden: bool = False) -> list[ProjectRecord]:
+def list_projects(*, include_archived: bool = False) -> list[ProjectRecord]:
     conditions: list[str] = []
     if not include_archived:
         conditions.append("archived_at IS NULL")
-    if not include_hidden:
-        conditions.append("is_hidden = 0")
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with _connection() as connection:
         rows = connection.execute(
             f"""
-            SELECT id, name, is_hidden, created_at, updated_at, archived_at
+            SELECT
+              id,
+              title,
+              synopsis,
+              status,
+              active_provider_id,
+              active_model_id,
+              expansion_policy,
+              created_at,
+              updated_at,
+              archived_at
             FROM projects
             {where}
-            ORDER BY updated_at DESC, name ASC
+            ORDER BY updated_at DESC, title ASC
             """
         ).fetchall()
     return [_project_from_row(row) for row in rows]
 
 
-def get_project(project_id: str, *, include_hidden: bool = True) -> ProjectRecord | None:
-    hidden_clause = "" if include_hidden else " AND is_hidden = 0"
+def get_project(project_id: str) -> ProjectRecord | None:
     with _connection() as connection:
         row = connection.execute(
-            f"""
-            SELECT id, name, is_hidden, created_at, updated_at, archived_at
+            """
+            SELECT
+              id,
+              title,
+              synopsis,
+              status,
+              active_provider_id,
+              active_model_id,
+              expansion_policy,
+              created_at,
+              updated_at,
+              archived_at
             FROM projects
-            WHERE id = ? AND archived_at IS NULL{hidden_clause}
+            WHERE id = ? AND archived_at IS NULL
             """,
             (project_id,),
         ).fetchone()
@@ -77,10 +94,26 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
     with _connection() as connection:
         connection.execute(
             """
-            INSERT INTO projects (id, name, is_hidden)
-            VALUES (?, ?, ?)
+            INSERT INTO projects (
+              id,
+              title,
+              synopsis,
+              status,
+              active_provider_id,
+              active_model_id,
+              expansion_policy
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (project_id, payload.name.strip(), int(payload.is_hidden)),
+            (
+                project_id,
+                payload.title.strip(),
+                payload.synopsis,
+                payload.status,
+                payload.active_provider_id,
+                payload.active_model_id,
+                payload.expansion_policy,
+            ),
         )
         connection.commit()
 
@@ -96,10 +129,16 @@ def update_project(project_id: str, payload: ProjectUpdate) -> ProjectRecord | N
         return None
 
     values = payload.model_dump(exclude_unset=True)
-    if "name" in values:
-        values["name"] = _clean(values["name"])
-    if "is_hidden" in values:
-        values["is_hidden"] = int(bool(values["is_hidden"]))
+    nullable_fields = {"synopsis", "active_provider_id", "active_model_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if "title" in values:
+        values["title"] = _clean(values["title"])
+    if "status" in values:
+        values["status"] = _clean(values["status"])
+    if "expansion_policy" in values:
+        values["expansion_policy"] = _clean(values["expansion_policy"])
     if not values:
         return current
 
@@ -123,6 +162,7 @@ def archive_project(project_id: str) -> bool:
             """
             UPDATE projects
             SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+                status = 'archived',
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND archived_at IS NULL
             """,

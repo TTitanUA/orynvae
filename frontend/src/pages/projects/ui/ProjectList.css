@@ -17,7 +17,7 @@
 
 .project-card__title {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.5rem;
   align-items: center;
 }
@@ -44,16 +44,15 @@
   text-decoration-color: currentColor;
 }
 
-.project-card__hidden {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+.project-card__synopsis {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
   color: var(--color-text-muted);
-  background: var(--color-surface-subtle);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .project-card__meta {

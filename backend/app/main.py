@@ -23,7 +23,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 async def debug_http_middleware(request: Request, call_next):
-    if not is_debug_enabled():
+    if not is_debug_enabled() or _is_debug_log_endpoint(request.url.path):
         return await call_next(request)
 
     request_id = str(uuid4())
@@ -75,6 +75,10 @@ async def debug_http_middleware(request: Request, call_next):
         },
     )
     return response
+
+
+def _is_debug_log_endpoint(path: str) -> bool:
+    return path == "/api/debug/logs" or path.startswith("/api/debug/logs/")
 
 
 def create_app() -> FastAPI:

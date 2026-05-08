@@ -1,7 +1,7 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { projectQueries } from "../../entities/project";
+import { runtimeQueries } from "../../entities/runtime";
 import { NoticeBlock } from "../../shared/ui";
 import { AppShell } from "../../widgets/app-shell";
 import { ProjectList, ProjectsHeader } from "./ui";
@@ -9,18 +9,17 @@ import "./ProjectsRoute.css";
 
 export function ProjectsRoute() {
   const projectsQuery = useQuery(projectQueries.list());
-  const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data]);
+  const runtimeQuery = useQuery(runtimeQueries.status());
+  const projects = projectsQuery.data || [];
   const error = projectsQuery.error instanceof Error ? projectsQuery.error.message : undefined;
-
-  const hiddenProjects = useMemo(
-    () => projects.filter((project) => project.is_hidden).length,
-    [projects],
-  );
+  const readOnlyReason = runtimeQuery.data?.read_only ? runtimeQuery.data.reason : undefined;
 
   return (
     <AppShell>
       <div className="projects-route">
-        <ProjectsHeader hiddenProjects={hiddenProjects} totalProjects={projects.length} />
+        <ProjectsHeader readOnly={Boolean(runtimeQuery.data?.read_only)} totalProjects={projects.length} />
+
+        {readOnlyReason && <NoticeBlock>{readOnlyReason}</NoticeBlock>}
 
         {error && <NoticeBlock tone="error">{error}</NoticeBlock>}
 

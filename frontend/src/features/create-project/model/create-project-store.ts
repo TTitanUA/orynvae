@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { ProjectSetupAnalysis } from "../../../entities/project";
 
 export type ProjectCreateDraft = {
-  name: string;
+  title: string;
   description: string;
   synopsis: string;
   genre: string;
@@ -19,7 +19,7 @@ export type ProjectCreateDraft = {
 };
 
 export const emptyProjectCreateDraft: ProjectCreateDraft = {
-  name: "",
+  title: "",
   description: "",
   synopsis: "",
   genre: "",
@@ -52,7 +52,7 @@ type CreateProjectStore = {
 
 function draftFromAnalysis(analysis: ProjectSetupAnalysis): ProjectCreateDraft {
   return {
-    name: analysis.title,
+    title: analysis.title,
     description: analysis.description,
     synopsis: analysis.synopsis,
     genre: analysis.genre,

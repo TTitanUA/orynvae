@@ -13,7 +13,7 @@ type ProjectWorkspaceRouteProps = {
 export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps) {
   const projectQuery = useQuery(projectQueries.detail(projectId));
   const error = projectQuery.error instanceof Error ? projectQuery.error.message : undefined;
-  const title = projectQuery.data?.name || "Проект";
+  const title = projectQuery.data?.title || "Проект";
 
   return (
     <AppShell>

@@ -97,6 +97,41 @@ def test_frontend_debug_logs_are_ignored_when_debug_disabled(monkeypatch, tmp_pa
     assert not log_dir.exists()
 
 
+def test_debug_log_endpoints_are_not_logged_by_http_middleware(monkeypatch, tmp_path):
+    log_dir = tmp_path / "logs"
+    monkeypatch.setenv("DEBUG", "1")
+    monkeypatch.setenv("ORYNVAE_LOG_DIR", str(log_dir))
+
+    client = TestClient(app)
+    assert client.get("/api/debug/logs").status_code == 200
+    assert client.post(
+        "/api/debug/logs",
+        json={
+            "entries": [
+                {
+                    "category": "system",
+                    "operation": "frontend.debug.test",
+                    "payload": {"url": "/api/debug/logs"},
+                }
+            ]
+        },
+    ).status_code == 204
+    assert client.get("/api/debug/logs/future").status_code == 404
+    assert client.get("/api/health").status_code == 200
+
+    entries = _entries(log_dir)
+    backend_http_entries = [
+        entry
+        for entry in entries
+        if entry["module"] == "backend" and entry["category"] == "http"
+    ]
+    assert all(
+        not entry["payload"].get("path", "").startswith("/api/debug/logs")
+        for entry in backend_http_entries
+    )
+    assert any(entry["payload"].get("path") == "/api/health" for entry in backend_http_entries)
+
+
 @pytest.mark.anyio
 async def test_llm_debug_logging_records_payload_and_redacts_headers(monkeypatch, tmp_path):
     log_dir = tmp_path / "logs"

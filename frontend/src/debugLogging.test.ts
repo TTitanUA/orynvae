@@ -51,6 +51,7 @@ describe("initializeFrontendDebugLogging", () => {
     window.fetch = fetchMock;
 
     await initializeFrontendDebugLogging();
+    await window.fetch("/api/debug/logs/future", { method: "GET" });
     await window.fetch("/api/projects/setup/analyze", {
       method: "POST",
       body: JSON.stringify({ idea_text: "test" }),
@@ -71,6 +72,9 @@ describe("initializeFrontendDebugLogging", () => {
     expect(
       entries.some((entry) => entry.category === "LLM" && entry.operation === "fetch.llm.end"),
     ).toBe(true);
+    expect(
+      entries.some((entry) => entry.payload?.url === "/api/debug/logs/future"),
+    ).toBe(false);
   });
 });
 

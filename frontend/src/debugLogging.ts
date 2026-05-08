@@ -157,7 +157,8 @@ function fetchCategory(url: string): DebugLogCategory {
 }
 
 function isDebugLogEndpoint(url: string): boolean {
-  return urlPath(url) === "/api/debug/logs";
+  const path = urlPath(url);
+  return path === "/api/debug/logs" || path.startsWith("/api/debug/logs/");
 }
 
 function urlPath(url: string): string {

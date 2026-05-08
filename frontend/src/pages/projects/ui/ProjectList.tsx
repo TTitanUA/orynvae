@@ -1,4 +1,4 @@
-import { EyeOff, Shapes } from "lucide-react";
+import { Shapes } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import type { Project } from "../../../entities/project";
@@ -29,15 +29,15 @@ export function ProjectList({ projects }: ProjectListProps) {
           <div className="project-card__title">
             <Shapes size={18} aria-hidden="true" />
             <h2>
-              <Link to={`/projects/${encodeURIComponent(project.id)}`}>{project.name}</Link>
+              <Link to={`/projects/${encodeURIComponent(project.id)}`}>{project.title}</Link>
             </h2>
-            {project.is_hidden && (
-              <span className="project-card__hidden" title="Скрытый проект">
-                <EyeOff size={14} aria-hidden="true" />
-              </span>
-            )}
           </div>
+          {project.synopsis && <p className="project-card__synopsis">{project.synopsis}</p>}
           <dl className="project-card__meta">
+            <div>
+              <dt>Статус</dt>
+              <dd>{project.status}</dd>
+            </div>
             <div>
               <dt>ID</dt>
               <dd className="project-card__id">{project.id}</dd>
