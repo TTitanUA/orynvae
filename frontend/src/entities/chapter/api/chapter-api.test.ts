@@ -36,6 +36,11 @@ describe("chapter API", () => {
       user_role: "author",
       controlled_character_ids: [],
       secondary_story_line_ids: [],
+      provider_id: "provider-1",
+      model_id: "model-1",
+      temperature: 0.45,
+      top_p: 0.8,
+      reasoning_effort: "medium",
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -59,7 +64,19 @@ describe("chapter API", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
       "/api/projects/project-1/chapters/chapter-1/session/prepare",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          user_role: "author",
+          controlled_character_ids: [],
+          secondary_story_line_ids: [],
+          provider_id: "provider-1",
+          model_id: "model-1",
+          temperature: 0.45,
+          top_p: 0.8,
+          reasoning_effort: "medium",
+        }),
+      }),
     );
   });
 });

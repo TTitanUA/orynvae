@@ -23,6 +23,9 @@
 .chapter-prepare-route__header h1,
 .chapter-prepare-route__header p,
 .chapter-prepare-panel__title h2,
+.chapter-panel-help,
+.chapter-help,
+.chapter-submit-help,
 .chapter-selector dl,
 .chapter-result p {
   margin: 0;
@@ -34,12 +37,44 @@
 
 .chapter-prepare-route__header p,
 .chapter-prepare-route__back,
+.chapter-panel-help,
+.chapter-help,
+.chapter-submit-help,
 .chapter-prepare-empty,
 .chapter-selector dt,
+.chapter-selector dd small,
+.chapter-field small,
+.chapter-range small,
+.chapter-choice-list small,
 .chapter-choice-list em,
+.chapter-result article small,
 .chapter-result span {
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+.chapter-panel-help,
+.chapter-help,
+.chapter-submit-help,
+.chapter-selector dd small,
+.chapter-field small,
+.chapter-range small,
+.chapter-choice-list small,
+.chapter-result article small {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.chapter-panel-help,
+.chapter-submit-help {
+  max-width: 58rem;
+}
+
+.chapter-field small,
+.chapter-range small,
+.chapter-choice-list small,
+.chapter-result article small {
+  font-size: 0.8125rem;
 }
 
 .chapter-prepare-route__back {
@@ -107,6 +142,82 @@
   gap: 0.5rem;
 }
 
+.chapter-model-config {
+  gap: 0.875rem;
+}
+
+.chapter-model-config__header,
+.chapter-model-config__settings,
+.chapter-field,
+.chapter-range {
+  display: grid;
+}
+
+.chapter-model-config__header {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chapter-model-config__header > span {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.chapter-model-config__settings {
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.chapter-field {
+  gap: 0.375rem;
+}
+
+.chapter-field span,
+.chapter-range span {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chapter-parameter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.chapter-range {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.375rem 0.625rem;
+  align-items: center;
+}
+
+.chapter-range span {
+  grid-column: 1 / -1;
+}
+
+.chapter-range small {
+  grid-column: 1 / -1;
+}
+
+.chapter-range input {
+  width: 100%;
+}
+
+.chapter-range output {
+  min-width: 2.5rem;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  text-align: right;
+}
+
 .chapter-selector dl {
   display: grid;
   grid-template-columns: 9rem minmax(0, 1fr);
@@ -118,6 +229,8 @@
 }
 
 .chapter-selector dd {
+  display: grid;
+  gap: 0.25rem;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -160,6 +273,7 @@
 }
 
 .chapter-choice-list label {
+  align-items: flex-start;
   gap: 0.625rem;
   min-width: 0;
 }
@@ -167,6 +281,7 @@
 .chapter-choice-list input {
   width: auto;
   flex: 0 0 auto;
+  margin-top: 0.125rem;
 }
 
 .chapter-choice-list span {
@@ -186,6 +301,9 @@
 .chapter-line-focus > label {
   display: grid;
   gap: 0.375rem;
+}
+
+.chapter-line-focus > label:not(.chapter-field) {
   color: var(--color-text);
   font-weight: 700;
 }

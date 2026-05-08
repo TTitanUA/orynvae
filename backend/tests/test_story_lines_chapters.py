@@ -242,6 +242,11 @@ def test_chapters_can_be_prepared_into_saved_session_frame(tmp_path, monkeypatch
             "tone": "тревожный",
             "pace": "medium",
             "start_point": "Курьер замечает охрану у архива.",
+            "provider_id": project["active_provider_id"],
+            "model_id": project["active_model_id"],
+            "temperature": 0.4,
+            "top_p": 0.85,
+            "reasoning_effort": "high",
         },
     )
 
@@ -252,6 +257,10 @@ def test_chapters_can_be_prepared_into_saved_session_frame(tmp_path, monkeypatch
     assert body["opening_turn"]["content"].startswith("Ты стоишь")
     assert body["chapter"]["session_id"] == body["session"]["id"]
     assert story_runtime_store.list_session_turns(body["session"]["id"])[0].turn_type == "narration"
+    assert adapter.complete_calls[0]["model_id"] == project["active_model_id"]
+    assert adapter.complete_calls[0]["temperature"] == 0.4
+    assert adapter.complete_calls[0]["top_p"] == 0.85
+    assert adapter.complete_calls[0]["reasoning_effort"] == "high"
     request_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert request_payload["action_type"] == "prepare_chapter_session"
     assert request_payload["input"]["primary_story_line_id"] == line.id

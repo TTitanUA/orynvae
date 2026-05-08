@@ -4,8 +4,11 @@ import {
   allowedModels,
   defaultModelFor,
   enabledProviders,
+  modelSupportsParameter,
+  modelSupportsReasoning,
   preferredProvider,
   providerScopeLabel,
+  selectableAiProviders,
 } from "..";
 import type { Provider, ProviderModel } from "..";
 
@@ -40,6 +43,29 @@ describe("providerScopeLabel", () => {
 
     expect(allowedModels(testProvider).map((item) => item.model_id)).toEqual(["allowed"]);
     expect(defaultModelFor(testProvider)).toBe("allowed");
+  });
+
+  it("selects only healthy providers with allowed models", () => {
+    expect(
+      selectableAiProviders([
+        provider({ id: "ready", is_enabled: true, models: [model({ is_allowed: true })] }),
+        provider({ id: "disabled", is_enabled: false, models: [model({ is_allowed: true })] }),
+        provider({ id: "errored", last_error: "offline", models: [model({ is_allowed: true })] }),
+        provider({ id: "empty", models: [model({ is_allowed: false })] }),
+      ]).map((item) => item.id),
+    ).toEqual(["ready"]);
+  });
+
+  it("reads supported model parameters defensively", () => {
+    const openModel = model({ capabilities: {} });
+    const reasoningModel = model({
+      capabilities: { supported_parameters: ["temperature", "reasoning.effort"] },
+    });
+
+    expect(modelSupportsParameter(openModel, "temperature")).toBe(true);
+    expect(modelSupportsParameter(reasoningModel, "top_p")).toBe(false);
+    expect(modelSupportsReasoning(reasoningModel)).toBe(true);
+    expect(modelSupportsReasoning(openModel)).toBe(false);
   });
 });
 

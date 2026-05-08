@@ -91,8 +91,8 @@ async def prepare_chapter_session(
         AiActionRequest(
             action_type="prepare_chapter_session",
             project_id=project.id,
-            provider_id=project.active_provider_id,
-            model_id=project.active_model_id,
+            provider_id=_clean_optional(payload.provider_id) or project.active_provider_id,
+            model_id=_clean_optional(payload.model_id) or project.active_model_id,
             input={
                 "focus": payload.focus,
                 "user_role": payload.user_role,
@@ -127,6 +127,9 @@ async def prepare_chapter_session(
                 },
             ),
             privacy_level="project",
+            temperature=payload.temperature,
+            top_p=payload.top_p,
+            reasoning_effort=payload.reasoning_effort,
         )
     )
     output = PrepareChapterSessionOutput.model_validate(result.structured_json)

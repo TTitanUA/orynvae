@@ -15,6 +15,36 @@ export function allowedModels(provider?: Pick<Provider, "models">): ProviderMode
   return provider?.models.filter((model) => model.is_allowed) || [];
 }
 
+export function selectableAiProviders(providers: Provider[]): Provider[] {
+  return providers.filter(
+    (provider) => provider.is_enabled && !provider.last_error && allowedModels(provider).length > 0,
+  );
+}
+
+export function supportedModelParameters(model: ProviderModel | undefined): string[] {
+  const value = model?.capabilities.supported_parameters;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => item.toLowerCase());
+}
+
+export function modelSupportsParameter(model: ProviderModel | undefined, parameter: string): boolean {
+  const parameters = supportedModelParameters(model);
+  return parameters.length === 0 || parameters.includes(parameter);
+}
+
+export function modelSupportsReasoning(model: ProviderModel | undefined): boolean {
+  const parameters = supportedModelParameters(model);
+  return (
+    parameters.includes("reasoning") ||
+    parameters.includes("reasoning_effort") ||
+    parameters.includes("reasoning.effort")
+  );
+}
+
 export function defaultModelFor(provider?: Provider): string {
   if (!provider) {
     return "";

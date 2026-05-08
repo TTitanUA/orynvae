@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.ai_actions import AiSuggestedAction
+from app.models.ai_actions import AiSuggestedAction, ReasoningEffort
 from app.models.story_runtime import (
     ChapterRecord,
     ChapterSessionRecord,
@@ -45,6 +45,11 @@ class ChapterPrepareRequest(ChapterApiModel):
     pace: ChapterPace | None = None
     expansion_policy_override: str | None = Field(default=None, max_length=80)
     start_point: str | None = Field(default=None, max_length=4000)
+    provider_id: str | None = None
+    model_id: str | None = None
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    top_p: float | None = Field(default=None, ge=0, le=1)
+    reasoning_effort: ReasoningEffort | None = None
 
     @model_validator(mode="after")
     def _validate_line_focus(self) -> ChapterPrepareRequest:

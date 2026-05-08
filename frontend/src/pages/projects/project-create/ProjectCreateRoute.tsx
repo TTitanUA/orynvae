@@ -26,7 +26,13 @@ import {
   type StartStoryPointCandidate,
   type StartStoryReasoningEffort,
 } from "../../../entities/project";
-import { providerQueries, type Provider, type ProviderModel } from "../../../entities/provider";
+import {
+  allowedModels,
+  modelSupportsParameter,
+  modelSupportsReasoning,
+  providerQueries,
+  selectableAiProviders,
+} from "../../../entities/provider";
 import { runtimeQueries } from "../../../entities/runtime";
 import { NoticeBlock } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
@@ -135,34 +141,6 @@ function joinTitles(value: string[]): string {
   return value.join(", ");
 }
 
-function supportedParameters(model: ProviderModel | undefined): string[] {
-  const value = model?.capabilities.supported_parameters;
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
-    .map((item) => item.toLowerCase());
-}
-
-function supportsParameter(model: ProviderModel | undefined, parameter: string): boolean {
-  const parameters = supportedParameters(model);
-  return parameters.length === 0 || parameters.includes(parameter);
-}
-
-function supportsReasoning(model: ProviderModel | undefined): boolean {
-  const parameters = supportedParameters(model);
-  return (
-    parameters.includes("reasoning") ||
-    parameters.includes("reasoning_effort") ||
-    parameters.includes("reasoning.effort")
-  );
-}
-
-function allowedModels(provider: Provider | undefined): ProviderModel[] {
-  return provider?.models.filter((model) => model.is_allowed) || [];
-}
-
 export function ProjectCreateRoute() {
   const navigate = useNavigate();
   const runtimeQuery = useQuery(runtimeQueries.status());
@@ -195,10 +173,7 @@ export function ProjectCreateRoute() {
 
   const providers = useMemo(() => providersQuery.data || [], [providersQuery.data]);
   const selectableProviders = useMemo(
-    () =>
-      providers.filter(
-        (provider) => provider.is_enabled && !provider.last_error && allowedModels(provider).length > 0,
-      ),
+    () => selectableAiProviders(providers),
     [providers],
   );
   const runtimeProviderId = runtimeQuery.data?.active_provider?.id;
@@ -225,9 +200,9 @@ export function ProjectCreateRoute() {
   const selectedProviderAvailable = selectableProviders.some(
     (provider) => provider.id === selectedProviderId,
   );
-  const supportsTemperature = supportsParameter(selectedModel, "temperature");
-  const supportsTopP = supportsParameter(selectedModel, "top_p");
-  const supportsModelReasoning = supportsReasoning(selectedModel);
+  const supportsTemperature = modelSupportsParameter(selectedModel, "temperature");
+  const supportsTopP = modelSupportsParameter(selectedModel, "top_p");
+  const supportsModelReasoning = modelSupportsReasoning(selectedModel);
   const canAnalyze = Boolean(selectedProviderAvailable && selectedProvider && selectedModel);
   const blockedReason =
     providersQuery.isPending

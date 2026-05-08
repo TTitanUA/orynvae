@@ -27,6 +27,7 @@ export type ChapterUpdatePayload = {
 
 export type ChapterUserRole = "single_character" | "multiple_characters" | "author" | "unknown";
 export type ChapterPace = "slow" | "medium" | "fast" | "user_choice";
+export type ChapterReasoningEffort = "low" | "medium" | "high";
 
 export type ChapterSession = {
   id: string;
@@ -78,6 +79,11 @@ export type ChapterPreparePayload = {
   pace?: ChapterPace | null;
   expansion_policy_override?: string | null;
   start_point?: string | null;
+  provider_id?: string | null;
+  model_id?: string | null;
+  temperature?: number;
+  top_p?: number | null;
+  reasoning_effort?: ChapterReasoningEffort | null;
 };
 
 export type ChapterPrepareResult = {
