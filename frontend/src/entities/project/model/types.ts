@@ -102,19 +102,6 @@ export type WorldBible = {
   factions: WorldEntry[];
 };
 
-export type CharacterWorkspace = {
-  id?: string | null;
-  name: string;
-  gender?: string | null;
-  age?: string | null;
-  role?: string | null;
-  biography?: string | null;
-  motivation?: string | null;
-  goal?: string | null;
-  fear?: string | null;
-  internal_conflict?: string | null;
-};
-
 export type PlotArcWorkspace = {
   id?: string | null;
   title: string;
@@ -156,7 +143,7 @@ export type PlotBoard = {
 
 export type CanonFactLink = {
   id?: string | null;
-  target_type: "character" | "chapter" | "scene" | "event" | "world";
+  target_type: "chapter" | "scene" | "event" | "world";
   target_id: string;
   label?: string | null;
 };
@@ -196,7 +183,6 @@ export type ProjectWorkspace = {
   settings: WorkspaceSettings;
   idea_lab: IdeaLab;
   world_bible: WorldBible;
-  characters: CharacterWorkspace[];
   plot_board: PlotBoard;
   canon: CanonWorkspace;
 };
@@ -213,7 +199,6 @@ export type ProjectWorkspacePayload = Omit<ProjectWorkspace, "project"> & {
 export type ChapterEditorState = {
   project: ProjectWorkspaceProject;
   settings: WorkspaceSettings;
-  characters: CharacterWorkspace[];
   arcs: PlotArcWorkspace[];
   chapters: ChapterEditor[];
   saved_at: string | null;
