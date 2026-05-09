@@ -17,6 +17,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "008_hidden_projects.sql" in applied
     assert "008_session_suggested_actions.sql" in applied
     assert "009_narrator_agent_and_replay.sql" in applied
+    assert "010_chapter_reviews.sql" in applied
     with sqlite3.connect(data_dir / "app.db") as connection:
         tables = {
             row[0]
@@ -64,6 +65,9 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         "draft_versions",
         "forecasts",
         "forecast_options",
+        "chapter_reviews",
+        "chapter_review_story_line_updates",
+        "chapter_review_notes",
     }.issubset(tables)
     assert "characters" not in tables
     assert "canon_facts" not in tables
@@ -131,6 +135,7 @@ def test_v2_project_migration_replaces_legacy_projects(tmp_path, monkeypatch):
         "008_hidden_projects.sql",
         "008_session_suggested_actions.sql",
         "009_narrator_agent_and_replay.sql",
+        "010_chapter_reviews.sql",
     ]
     with sqlite3.connect(database_path) as connection:
         project_columns = {

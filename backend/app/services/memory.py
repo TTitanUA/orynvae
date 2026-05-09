@@ -246,10 +246,24 @@ def _next_step(
         )
     if active_session and active_session.status == "completed":
         return WorkspaceNextStep(
-            code="open_session_log",
-            label="Открыть лог сессии",
-            detail="Сессия завершена; лог готов для будущей сборки черновика.",
-            href=f"/projects/{project_id}/sessions/{active_session.id}/narrator?tab=log",
+            code="assemble_draft",
+            label="Собрать черновик",
+            detail="Сессия завершена; можно превратить лог в markdown-главу.",
+            href=f"/projects/{project_id}/sessions/{active_session.id}/draft",
+        )
+    if active_session and active_session.status == "draft_ready" and active_session.chapter_id:
+        return WorkspaceNextStep(
+            code="review_chapter",
+            label="Провести разбор",
+            detail="Черновик собран; следующий шаг - решить, что изменилось в истории.",
+            href=f"/projects/{project_id}/chapters/{active_session.chapter_id}/review",
+        )
+    if active_session and active_session.status == "reviewed" and active_session.chapter_id:
+        return WorkspaceNextStep(
+            code="forecast_next",
+            label="Посмотреть прогноз",
+            detail="Глава разобрана; можно выбрать мягкое направление для следующих глав.",
+            href=f"/projects/{project_id}/chapters/{active_session.chapter_id}/forecast",
         )
     if planned_chapter_id:
         return WorkspaceNextStep(
@@ -278,4 +292,8 @@ def _workspace_session(sessions: list[ChapterSessionRecord]) -> ChapterSessionRe
         session = next((item for item in sessions if item.status == status), None)
         if session is not None:
             return session
-    return next((item for item in sessions if item.status == "completed"), None)
+    for status in ["completed", "draft_ready", "reviewed"]:
+        session = next((item for item in sessions if item.status == status), None)
+        if session is not None:
+            return session
+    return None

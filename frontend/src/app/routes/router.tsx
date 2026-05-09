@@ -8,6 +8,9 @@ import { ProviderSettingsRoute } from "../../pages/settings/providers/ProviderSe
 import { SettingsRoute } from "../../pages/settings/SettingsRoute";
 import {
   ChapterPrepareRouteFromParams,
+  ChapterReviewRouteFromParams,
+  DraftAssemblyRouteFromParams,
+  ForecastRouteFromParams,
   NarratorSessionRouteFromParams,
   ProjectWorkspaceIndexRedirect,
   ProjectWorkspaceRouteFromParams,
@@ -26,7 +29,10 @@ export const router = createBrowserRouter([
   { path: "/projects/:projectId/story-lines/:lineId", element: <StoryLineDetailRouteFromParams /> },
   { path: "/projects/:projectId/chapters/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/chapters/:chapterId/prepare", element: <ChapterPrepareRouteFromParams /> },
+  { path: "/projects/:projectId/chapters/:chapterId/review", element: <ChapterReviewRouteFromParams /> },
+  { path: "/projects/:projectId/chapters/:chapterId/forecast", element: <ForecastRouteFromParams /> },
   { path: "/projects/:projectId/sessions/:sessionId/narrator", element: <NarratorSessionRouteFromParams /> },
+  { path: "/projects/:projectId/sessions/:sessionId/draft", element: <DraftAssemblyRouteFromParams /> },
   { path: "/projects/:projectId/workspace", element: <ProjectWorkspaceIndexRedirect /> },
   {
     path: "/projects/:projectId/workspace/*",

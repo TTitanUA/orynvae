@@ -61,6 +61,7 @@
 .narrator-tabs button,
 .narrator-input-types button,
 .narrator-session-actions button,
+.narrator-stage-link,
 .narrator-input-panel > button,
 .narrator-actions-list button,
 .narrator-agent-panel button,
@@ -250,6 +251,7 @@
 }
 
 .narrator-session-actions button,
+.narrator-stage-link,
 .narrator-input-panel > button,
 .narrator-agent-panel button,
 .narrator-replay-panel button,
@@ -257,6 +259,11 @@
 .narrator-inline-command,
 .narrator-key-event button {
   padding: 9px 12px;
+}
+
+.narrator-stage-link {
+  color: var(--color-accent);
+  text-decoration: none;
 }
 
 .narrator-actions-list {

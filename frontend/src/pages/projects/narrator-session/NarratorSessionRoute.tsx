@@ -4,6 +4,7 @@ import {
   Bot,
   CheckCircle2,
   ChevronLeft,
+  FileText,
   ListChecks,
   Pause,
   Play,
@@ -113,6 +114,7 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
   const canComplete = Boolean(
     !readOnly && session && ["active", "paused"].includes(session.status),
   );
+  const draftHref = `/projects/${projectId}/sessions/${sessionId}/draft`;
   const canSubmit = Boolean(
     !readOnly &&
       session?.status === "active" &&
@@ -470,6 +472,12 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
                     <Square size={15} aria-hidden="true" />
                     Завершить
                   </button>
+                  {session && ["completed", "draft_ready", "reviewed"].includes(session.status) && (
+                    <Link className="narrator-stage-link" to={draftHref}>
+                      <FileText size={15} aria-hidden="true" />
+                      Черновик
+                    </Link>
+                  )}
                 </div>
               </section>
 

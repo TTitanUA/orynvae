@@ -4,6 +4,17 @@ import json
 import sqlite3
 from uuid import uuid4
 
+from app.models.stage7 import (
+    ChapterReviewCreate,
+    ChapterReviewNoteCreate,
+    ChapterReviewNoteRecord,
+    ChapterReviewNoteStatusPatch,
+    ChapterReviewRecord,
+    ChapterReviewStoryLineUpdateCreate,
+    ChapterReviewStoryLineUpdateRecord,
+    ChapterReviewStoryLineUpdateStatusPatch,
+    ChapterReviewStatus,
+)
 from app.models.story_runtime import (
     ChapterCreate,
     ChapterRecord,
@@ -11,6 +22,7 @@ from app.models.story_runtime import (
     ChapterSessionRecord,
     ChapterSessionUpdate,
     ChapterUpdate,
+    DraftStatus,
     DraftVersionCreate,
     DraftVersionRecord,
     ForecastCreate,
@@ -1219,6 +1231,356 @@ def list_draft_versions(project_id: str, chapter_id: str) -> list[DraftVersionRe
     return [_draft_version_from_row(row) for row in rows]
 
 
+def get_draft_version(project_id: str, draft_version_id: str) -> DraftVersionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM draft_versions
+            WHERE project_id = ? AND id = ?
+            """,
+            (project_id, draft_version_id),
+        ).fetchone()
+    return _draft_version_from_row(row) if row else None
+
+
+def get_latest_draft_version(project_id: str, chapter_id: str) -> DraftVersionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM draft_versions
+            WHERE project_id = ? AND chapter_id = ?
+            ORDER BY created_at DESC, rowid DESC
+            LIMIT 1
+            """,
+            (project_id, chapter_id),
+        ).fetchone()
+    return _draft_version_from_row(row) if row else None
+
+
+def update_draft_version_status(
+    project_id: str,
+    draft_version_id: str,
+    status: DraftStatus,
+) -> DraftVersionRecord | None:
+    with _connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE draft_versions
+            SET status = ?
+            WHERE project_id = ? AND id = ?
+            """,
+            (status, project_id, draft_version_id),
+        )
+        connection.commit()
+    if cursor.rowcount == 0:
+        return None
+    return get_draft_version(project_id, draft_version_id)
+
+
+def create_chapter_review(
+    project_id: str,
+    payload: ChapterReviewCreate,
+) -> ChapterReviewRecord:
+    review_id = str(uuid4())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO chapter_reviews (
+              id,
+              project_id,
+              chapter_id,
+              source_session_id,
+              source_draft_version_id,
+              summary,
+              status,
+              warnings_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                review_id,
+                project_id,
+                payload.chapter_id,
+                payload.source_session_id,
+                payload.source_draft_version_id,
+                payload.summary.strip(),
+                payload.status,
+                _json(payload.warnings),
+            ),
+        )
+        connection.commit()
+    review = get_chapter_review(project_id, review_id)
+    if review is None:
+        raise RuntimeError("Created chapter review could not be loaded")
+    return review
+
+
+def get_chapter_review(project_id: str, review_id: str) -> ChapterReviewRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_reviews
+            WHERE project_id = ? AND id = ?
+            """,
+            (project_id, review_id),
+        ).fetchone()
+    return _chapter_review_from_row(row) if row else None
+
+
+def get_latest_chapter_review(project_id: str, chapter_id: str) -> ChapterReviewRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_reviews
+            WHERE project_id = ? AND chapter_id = ?
+            ORDER BY created_at DESC, rowid DESC
+            LIMIT 1
+            """,
+            (project_id, chapter_id),
+        ).fetchone()
+    return _chapter_review_from_row(row) if row else None
+
+
+def list_chapter_reviews(project_id: str, chapter_id: str) -> list[ChapterReviewRecord]:
+    with _connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM chapter_reviews
+            WHERE project_id = ? AND chapter_id = ?
+            ORDER BY created_at DESC, rowid DESC
+            """,
+            (project_id, chapter_id),
+        ).fetchall()
+    return [_chapter_review_from_row(row) for row in rows]
+
+
+def update_chapter_review_status(
+    project_id: str,
+    review_id: str,
+    status: ChapterReviewStatus,
+) -> ChapterReviewRecord | None:
+    with _connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE chapter_reviews
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE project_id = ? AND id = ?
+            """,
+            (status, project_id, review_id),
+        )
+        connection.commit()
+    if cursor.rowcount == 0:
+        return None
+    return get_chapter_review(project_id, review_id)
+
+
+def create_chapter_review_story_line_update(
+    project_id: str,
+    payload: ChapterReviewStoryLineUpdateCreate,
+) -> ChapterReviewStoryLineUpdateRecord:
+    update_id = str(uuid4())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO chapter_review_story_line_updates (
+              id,
+              review_id,
+              project_id,
+              target_story_line_id,
+              title,
+              before_state,
+              after_state,
+              event_summary,
+              reason,
+              status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                update_id,
+                payload.review_id,
+                project_id,
+                payload.target_story_line_id,
+                payload.title.strip(),
+                payload.before_state,
+                payload.after_state.strip(),
+                payload.event_summary,
+                payload.reason,
+                payload.status,
+            ),
+        )
+        connection.commit()
+    record = get_chapter_review_story_line_update(project_id, update_id)
+    if record is None:
+        raise RuntimeError("Created chapter review story line update could not be loaded")
+    return record
+
+
+def get_chapter_review_story_line_update(
+    project_id: str,
+    update_id: str,
+) -> ChapterReviewStoryLineUpdateRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_review_story_line_updates
+            WHERE project_id = ? AND id = ?
+            """,
+            (project_id, update_id),
+        ).fetchone()
+    return _chapter_review_story_line_update_from_row(row) if row else None
+
+
+def list_chapter_review_story_line_updates(
+    project_id: str,
+    review_id: str,
+) -> list[ChapterReviewStoryLineUpdateRecord]:
+    with _connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM chapter_review_story_line_updates
+            WHERE project_id = ? AND review_id = ?
+            ORDER BY created_at ASC, rowid ASC
+            """,
+            (project_id, review_id),
+        ).fetchall()
+    return [_chapter_review_story_line_update_from_row(row) for row in rows]
+
+
+def update_chapter_review_story_line_update_status(
+    project_id: str,
+    update_id: str,
+    payload: ChapterReviewStoryLineUpdateStatusPatch,
+) -> ChapterReviewStoryLineUpdateRecord | None:
+    current = get_chapter_review_story_line_update(project_id, update_id)
+    if current is None:
+        return None
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"target_story_line_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if not values:
+        return current
+    assignments = [f"{key} = ?" for key in values]
+    parameters = [*values.values(), project_id, update_id]
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE chapter_review_story_line_updates
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_chapter_review_story_line_update(project_id, update_id)
+
+
+def create_chapter_review_note(
+    project_id: str,
+    payload: ChapterReviewNoteCreate,
+) -> ChapterReviewNoteRecord:
+    note_id = str(uuid4())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO chapter_review_notes (
+              id,
+              review_id,
+              project_id,
+              note_type,
+              title,
+              body_json,
+              severity,
+              status,
+              decision_note
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                note_id,
+                payload.review_id,
+                project_id,
+                payload.note_type,
+                payload.title.strip(),
+                _json(payload.body),
+                payload.severity,
+                payload.status,
+                payload.decision_note,
+            ),
+        )
+        connection.commit()
+    record = get_chapter_review_note(project_id, note_id)
+    if record is None:
+        raise RuntimeError("Created chapter review note could not be loaded")
+    return record
+
+
+def get_chapter_review_note(project_id: str, note_id: str) -> ChapterReviewNoteRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_review_notes
+            WHERE project_id = ? AND id = ?
+            """,
+            (project_id, note_id),
+        ).fetchone()
+    return _chapter_review_note_from_row(row) if row else None
+
+
+def list_chapter_review_notes(project_id: str, review_id: str) -> list[ChapterReviewNoteRecord]:
+    with _connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM chapter_review_notes
+            WHERE project_id = ? AND review_id = ?
+            ORDER BY created_at ASC, rowid ASC
+            """,
+            (project_id, review_id),
+        ).fetchall()
+    return [_chapter_review_note_from_row(row) for row in rows]
+
+
+def update_chapter_review_note_status(
+    project_id: str,
+    note_id: str,
+    payload: ChapterReviewNoteStatusPatch,
+) -> ChapterReviewNoteRecord | None:
+    current = get_chapter_review_note(project_id, note_id)
+    if current is None:
+        return None
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"decision_note"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if not values:
+        return current
+    assignments = [f"{key} = ?" for key in values]
+    parameters = [*values.values(), project_id, note_id]
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE chapter_review_notes
+            SET {', '.join(assignments)}
+            WHERE project_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_chapter_review_note(project_id, note_id)
+
+
 def create_forecast(project_id: str, payload: ForecastCreate) -> ForecastRecord:
     forecast_id = str(uuid4())
     with _connection() as connection:
@@ -1264,6 +1626,39 @@ def list_forecasts(project_id: str) -> list[ForecastRecord]:
         _forecast_from_row(row, options=options_by_forecast.get(row["id"], []))
         for row in forecast_rows
     ]
+
+
+def get_forecast(project_id: str, forecast_id: str) -> ForecastRecord | None:
+    return next((item for item in list_forecasts(project_id) if item.id == forecast_id), None)
+
+
+def select_forecast_option(
+    project_id: str,
+    forecast_id: str,
+    option_id: str,
+) -> ForecastRecord | None:
+    forecast = get_forecast(project_id, forecast_id)
+    if forecast is None or all(option.id != option_id for option in forecast.options):
+        return None
+    with _connection() as connection:
+        connection.execute(
+            """
+            UPDATE forecast_options
+            SET is_selected_as_orientation = 0
+            WHERE forecast_id = ?
+            """,
+            (forecast_id,),
+        )
+        connection.execute(
+            """
+            UPDATE forecast_options
+            SET is_selected_as_orientation = 1
+            WHERE forecast_id = ? AND id = ?
+            """,
+            (forecast_id, option_id),
+        )
+        connection.commit()
+    return get_forecast(project_id, forecast_id)
 
 
 def _insert_forecast_option(
@@ -1350,6 +1745,26 @@ def _key_event_from_row(row: sqlite3.Row) -> KeyEventRecord:
 
 def _draft_version_from_row(row: sqlite3.Row) -> DraftVersionRecord:
     return DraftVersionRecord(**dict(row))
+
+
+def _chapter_review_from_row(row: sqlite3.Row) -> ChapterReviewRecord:
+    payload = dict(row)
+    payload["warnings"] = _json_list(row["warnings_json"])
+    payload.pop("warnings_json", None)
+    return ChapterReviewRecord(**payload)
+
+
+def _chapter_review_story_line_update_from_row(
+    row: sqlite3.Row,
+) -> ChapterReviewStoryLineUpdateRecord:
+    return ChapterReviewStoryLineUpdateRecord(**dict(row))
+
+
+def _chapter_review_note_from_row(row: sqlite3.Row) -> ChapterReviewNoteRecord:
+    payload = dict(row)
+    payload["body"] = _json_dict(row["body_json"])
+    payload.pop("body_json", None)
+    return ChapterReviewNoteRecord(**payload)
 
 
 def _forecast_option_from_row(row: sqlite3.Row) -> ForecastOptionRecord:

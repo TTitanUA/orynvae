@@ -151,7 +151,9 @@ export type WorkspaceNextStep = {
     | "configure_ai"
     | "prepare_first_chapter"
     | "continue_session"
-    | "open_session_log"
+    | "assemble_draft"
+    | "review_chapter"
+    | "forecast_next"
     | "review_memory"
     | "continue_story";
   label: string;

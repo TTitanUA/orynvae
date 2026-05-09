@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.ai.service import AiActionException
 from app.models.projects import ProjectCreate, ProjectRecord, ProjectUpdate
+from app.models.stage7 import ForecastGenerateRequest, ForecastListResponse
+from app.models.story_runtime import ForecastRecord
 from app.models.start_story import (
     StartStoryAnalysisResponse,
     StartStoryAnalyzeRequest,
@@ -9,7 +11,7 @@ from app.models.start_story import (
     StartStoryConfirmResponse,
     StartStoryRefineRequest,
 )
-from app.services import project_store, start_story
+from app.services import project_store, stage7, start_story
 from app.services.runtime_status import require_creative_write
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -54,6 +56,53 @@ def confirm_start_story(payload: StartStoryConfirmRequest) -> StartStoryConfirmR
         return start_story.confirm_start_story(payload)
     except AiActionException as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
+
+
+@router.get("/{project_id}/forecasts", response_model=ForecastListResponse)
+def list_forecasts(project_id: str) -> ForecastListResponse:
+    forecasts = stage7.list_forecasts(project_id)
+    if forecasts is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return ForecastListResponse(forecasts=forecasts)
+
+
+@router.post("/{project_id}/forecast", response_model=ForecastRecord)
+async def generate_forecast(
+    project_id: str,
+    payload: ForecastGenerateRequest,
+) -> ForecastRecord:
+    try:
+        forecast = await stage7.generate_forecast(project_id, payload)
+    except stage7.Stage7Error as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except AiActionException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
+    if forecast is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project or chapter not found")
+    return forecast
+
+
+@router.get("/{project_id}/forecasts/{forecast_id}", response_model=ForecastRecord)
+def get_forecast(project_id: str, forecast_id: str) -> ForecastRecord:
+    forecast = stage7.get_forecast(project_id, forecast_id)
+    if forecast is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Forecast not found")
+    return forecast
+
+
+@router.post(
+    "/{project_id}/forecasts/{forecast_id}/options/{option_id}/select",
+    response_model=ForecastRecord,
+)
+def select_forecast_option(
+    project_id: str,
+    forecast_id: str,
+    option_id: str,
+) -> ForecastRecord:
+    forecast = stage7.select_forecast_option(project_id, forecast_id, option_id)
+    if forecast is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Forecast option not found")
+    return forecast
 
 
 @router.get("/{project_id}", response_model=ProjectRecord)

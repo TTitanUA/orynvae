@@ -16,8 +16,9 @@ from app.models.narrator_sessions import (
     NarratorTurnRequest,
     NarratorTurnResponse,
 )
+from app.models.stage7 import DraftAssemblyRequest, DraftAssemblyResponse
 from app.models.story_runtime import KeyEventRecord, SessionTurnRecord
-from app.services import narrator_sessions
+from app.services import narrator_sessions, stage7
 from app.services import story_runtime_store
 
 router = APIRouter(prefix="/sessions/{session_id}", tags=["sessions"])
@@ -40,6 +41,22 @@ def start_session(session_id: str) -> NarratorSessionDetail:
     if detail is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     return detail
+
+
+@router.post("/assemble-draft", response_model=DraftAssemblyResponse)
+async def assemble_draft(
+    session_id: str,
+    payload: DraftAssemblyRequest,
+) -> DraftAssemblyResponse:
+    try:
+        result = await stage7.assemble_draft(session_id, payload)
+    except stage7.Stage7Error as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except AiActionException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_detail()) from exc
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return result
 
 
 @router.patch("/agent-settings", response_model=NarratorSessionDetail)
