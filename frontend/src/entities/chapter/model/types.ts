@@ -40,6 +40,10 @@ export type ChapterSession = {
   tone: string | null;
   pace: string | null;
   expansion_policy_override: string | null;
+  agent_instructions: string | null;
+  agent_temperature: number | null;
+  agent_top_p: number | null;
+  agent_reasoning_effort: ChapterReasoningEffort | null;
   started_at: string | null;
   paused_at: string | null;
   completed_at: string | null;

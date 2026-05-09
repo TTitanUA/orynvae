@@ -184,6 +184,10 @@ describe("ChapterPrepareRoute", () => {
             tone: null,
             pace: null,
             expansion_policy_override: null,
+            agent_instructions: null,
+            agent_temperature: 0.7,
+            agent_top_p: null,
+            agent_reasoning_effort: null,
             started_at: null,
             paused_at: null,
             completed_at: null,
@@ -366,6 +370,9 @@ describe("ChapterPrepareRoute", () => {
         }),
       );
     });
+    expect(
+      (await screen.findByRole("link", { name: "Открыть рассказчика" })).getAttribute("href"),
+    ).toBe("/projects/project-1/sessions/session-1/narrator");
     const prepareCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/session/prepare"));
     expect(JSON.parse(String(prepareCall?.[1]?.body))).toMatchObject({
       provider_id: "provider-1",

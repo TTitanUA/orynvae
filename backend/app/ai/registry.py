@@ -21,6 +21,7 @@ from app.models.ai_actions import (
     ReviewChapterOutput,
     SuggestStartPointsOutput,
     SuggestStoryLinesOutput,
+    SuggestTurnActionsOutput,
     SummarizeSessionOutput,
     UpdateStoryLinesOutput,
 )
@@ -76,6 +77,11 @@ ACTION_DEFINITIONS: dict[AiActionType, AiActionDefinition] = {
         "Generate the next narrator turn and candidates from user input.",
         NarrateTurnOutput,
         supports_streaming=True,
+    ),
+    "suggest_turn_actions": AiActionDefinition(
+        "suggest_turn_actions",
+        "Regenerate possible user actions for the current narrator turn.",
+        SuggestTurnActionsOutput,
     ),
     "summarize_session": AiActionDefinition(
         "summarize_session",

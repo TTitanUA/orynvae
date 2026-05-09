@@ -9,6 +9,7 @@ from app.api import (
     projects,
     providers,
     runtime,
+    sessions,
     settings,
     story_lines,
 )
@@ -20,6 +21,7 @@ api_router.include_router(debug.router)
 api_router.include_router(health.router)
 api_router.include_router(memory.router)
 api_router.include_router(providers.router)
+api_router.include_router(sessions.router)
 api_router.include_router(story_lines.router)
 api_router.include_router(projects.router)
 api_router.include_router(runtime.router)

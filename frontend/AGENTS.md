@@ -26,6 +26,7 @@
 ## MVP v2 frontend constraints
 
 - The application is desktop-only for MVP v2. The minimum supported viewport is 1980px by 1024px.
+- A two-column layout means an even 50% / 50% split by default. Use a different ratio only when the task or an existing local pattern explicitly calls for it.
 - Do not add mobile/tablet breakpoints, hamburger navigation, phone-style full-width controls, or single-column mobile layouts unless the product requirement explicitly changes.
 - Markdown editor work should use the `OrynvaeMarkdownEditor` direction from `docs/technical-stack-v2.md`: CodeMirror 6 core, Orynvae editor layer, markdown as source of truth.
 - When active AI is unavailable, mutating creative UI must be disabled or route to provider setup; existing content remains readable.

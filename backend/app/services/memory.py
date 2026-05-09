@@ -17,6 +17,7 @@ from app.models.memory import (
 )
 from app.models.projects import ProjectRecord
 from app.models.story_runtime import (
+    ChapterSessionRecord,
     MemoryItemCreate,
     MemoryItemRecord,
     MemoryItemUpdate,
@@ -135,9 +136,11 @@ def get_workspace_summary(project_id: str) -> ProjectWorkspaceSummary | None:
     pending_proposals = story_runtime_store.list_memory_proposals(project_id, status="pending")
     story_lines = story_runtime_store.list_story_lines(project_id)
     chapters = story_runtime_store.list_chapters(project_id)
+    sessions = story_runtime_store.list_chapter_sessions(project_id)
     active_story_lines = [
         line for line in story_lines if line.status in {"active", "proposed", "sleeping"}
     ][:7]
+    active_session = _workspace_session(sessions)
     planned_chapter = next((chapter for chapter in chapters if chapter.status == "planned"), None)
     latest_chapter = chapters[-1] if chapters else None
 
@@ -151,6 +154,7 @@ def get_workspace_summary(project_id: str) -> ProjectWorkspaceSummary | None:
         next_step=_next_step(
             project_id=project_id,
             read_only=runtime.read_only,
+            active_session=active_session,
             planned_chapter_id=planned_chapter.id if planned_chapter else None,
             pending_attention=bool(pending_memory_items or pending_proposals),
         ),
@@ -160,6 +164,7 @@ def get_workspace_summary(project_id: str) -> ProjectWorkspaceSummary | None:
         active_story_lines=active_story_lines,
         planned_chapter=planned_chapter,
         latest_chapter=latest_chapter,
+        active_session=active_session,
         warnings=warnings,
     )
 
@@ -221,6 +226,7 @@ def _next_step(
     *,
     project_id: str,
     read_only: bool,
+    active_session: ChapterSessionRecord | None,
     planned_chapter_id: str | None,
     pending_attention: bool,
 ) -> WorkspaceNextStep:
@@ -230,6 +236,20 @@ def _next_step(
             label="Настроить AI",
             detail="Творческие действия заблокированы, пока модель недоступна.",
             href="/settings/providers",
+        )
+    if active_session and active_session.status in {"preparing", "active", "paused"}:
+        return WorkspaceNextStep(
+            code="continue_session",
+            label="Открыть рассказчика",
+            detail="Есть сохраненная сессия главы; можно продолжить интерактивную сцену.",
+            href=f"/projects/{project_id}/sessions/{active_session.id}/narrator",
+        )
+    if active_session and active_session.status == "completed":
+        return WorkspaceNextStep(
+            code="open_session_log",
+            label="Открыть лог сессии",
+            detail="Сессия завершена; лог готов для будущей сборки черновика.",
+            href=f"/projects/{project_id}/sessions/{active_session.id}/narrator?tab=log",
         )
     if planned_chapter_id:
         return WorkspaceNextStep(
@@ -251,3 +271,11 @@ def _next_step(
         detail="Workspace готов к следующему творческому шагу.",
         href=f"/projects/{project_id}/chapters/prepare",
     )
+
+
+def _workspace_session(sessions: list[ChapterSessionRecord]) -> ChapterSessionRecord | None:
+    for status in ["active", "paused", "preparing"]:
+        session = next((item for item in sessions if item.status == status), None)
+        if session is not None:
+            return session
+    return next((item for item in sessions if item.status == "completed"), None)

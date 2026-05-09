@@ -1,6 +1,7 @@
 import { Navigate, useParams } from "react-router-dom";
 
 import { HomeRoute } from "../../pages/home/HomeRoute";
+import { NarratorSessionRoute } from "../../pages/projects/narrator-session/NarratorSessionRoute";
 import { ChapterPrepareRoute } from "../../pages/projects/chapter-prepare/ChapterPrepareRoute";
 import { ProjectWorkspaceRoute } from "../../pages/projects/project-workspace/ProjectWorkspaceRoute";
 import { StoryLineDetailRoute } from "../../pages/projects/story-lines/StoryLineDetailRoute";
@@ -72,4 +73,17 @@ export function ChapterPrepareRouteFromParams() {
   }
 
   return <ChapterPrepareRoute chapterId={chapterId} projectId={projectId} />;
+}
+
+export function NarratorSessionRouteFromParams() {
+  const { projectId, sessionId } = useParams<{
+    projectId: string;
+    sessionId: string;
+  }>();
+
+  if (!projectId || !sessionId) {
+    return <HomeRoute />;
+  }
+
+  return <NarratorSessionRoute projectId={projectId} sessionId={sessionId} />;
 }

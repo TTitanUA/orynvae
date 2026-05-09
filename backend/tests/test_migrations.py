@@ -15,6 +15,8 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "004_provider_model_preferences.sql" in applied
     assert "007_v2_runtime_schema.sql" in applied
     assert "008_hidden_projects.sql" in applied
+    assert "008_session_suggested_actions.sql" in applied
+    assert "009_narrator_agent_and_replay.sql" in applied
     with sqlite3.connect(data_dir / "app.db") as connection:
         tables = {
             row[0]
@@ -37,6 +39,12 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         draft_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(draft_versions)").fetchall()
         }
+        session_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(chapter_sessions)").fetchall()
+        }
+        key_event_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(key_events)").fetchall()
+        }
 
     assert "projects" in tables
     assert "model_providers" in tables
@@ -51,6 +59,7 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
         "chapters",
         "chapter_sessions",
         "session_turns",
+        "session_suggested_actions",
         "key_events",
         "draft_versions",
         "forecasts",
@@ -81,6 +90,13 @@ def test_apply_migrations_creates_initial_tables(tmp_path, monkeypatch):
     assert "draft_markdown" in chapter_columns
     assert "final_markdown" in chapter_columns
     assert "markdown" in draft_columns
+    assert {
+        "agent_instructions",
+        "agent_temperature",
+        "agent_top_p",
+        "agent_reasoning_effort",
+    }.issubset(session_columns)
+    assert "source_turn_id" in key_event_columns
 
 
 def test_v2_project_migration_replaces_legacy_projects(tmp_path, monkeypatch):
@@ -110,7 +126,12 @@ def test_v2_project_migration_replaces_legacy_projects(tmp_path, monkeypatch):
 
     applied = apply_migrations()
 
-    assert applied == ["007_v2_runtime_schema.sql", "008_hidden_projects.sql"]
+    assert applied == [
+        "007_v2_runtime_schema.sql",
+        "008_hidden_projects.sql",
+        "008_session_suggested_actions.sql",
+        "009_narrator_agent_and_replay.sql",
+    ]
     with sqlite3.connect(database_path) as connection:
         project_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(projects)").fetchall()

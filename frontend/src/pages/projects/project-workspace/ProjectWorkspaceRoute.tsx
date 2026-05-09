@@ -326,6 +326,10 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                     <dd>{summary.latest_chapter?.title || summary.planned_chapter?.title || "глав еще нет"}</dd>
                   </div>
                   <div>
+                    <dt>Сессия</dt>
+                    <dd>{summary.active_session?.status || "нет активной сессии"}</dd>
+                  </div>
+                  <div>
                     <dt>Память</dt>
                     <dd>
                       {summary.memory_counts.canon} канон, {summary.memory_counts.draft} черновик,{" "}

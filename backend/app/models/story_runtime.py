@@ -28,6 +28,8 @@ ChapterStatus = Literal[
 ChapterSessionStatus = Literal["preparing", "active", "paused", "completed", "draft_ready", "reviewed"]
 SessionActorType = Literal["ai", "user", "system"]
 SessionTurnType = Literal["narration", "action", "dialogue", "author_command", "choice", "note", "summary"]
+SessionSuggestedActionStatus = Literal["suggested", "selected", "dismissed"]
+NarratorAgentReasoningEffort = Literal["low", "medium", "high"]
 DraftMode = Literal["faithful", "literary", "shorter", "expanded", "dialogue_focus", "atmosphere_focus"]
 DraftStatus = Literal["generated", "edited", "accepted"]
 
@@ -165,6 +167,10 @@ class ChapterSessionCreate(BaseModel):
     tone: str | None = None
     pace: str | None = None
     expansion_policy_override: str | None = None
+    agent_instructions: str | None = None
+    agent_temperature: float | None = Field(default=0.7, ge=0, le=2)
+    agent_top_p: float | None = Field(default=None, ge=0, le=1)
+    agent_reasoning_effort: NarratorAgentReasoningEffort | None = None
     started_at: str | None = None
     paused_at: str | None = None
     completed_at: str | None = None
@@ -179,6 +185,10 @@ class ChapterSessionUpdate(BaseModel):
     tone: str | None = None
     pace: str | None = None
     expansion_policy_override: str | None = None
+    agent_instructions: str | None = None
+    agent_temperature: float | None = Field(default=None, ge=0, le=2)
+    agent_top_p: float | None = Field(default=None, ge=0, le=1)
+    agent_reasoning_effort: NarratorAgentReasoningEffort | None = None
     started_at: str | None = None
     paused_at: str | None = None
     completed_at: str | None = None
@@ -212,9 +222,38 @@ class SessionTurnRecord(SessionTurnCreate):
     created_at: str
 
 
+class SessionSuggestedActionCreate(BaseModel):
+    source_turn_id: str | None = None
+    action_index: int = 0
+    label: str = Field(min_length=1, max_length=120)
+    action: str = Field(min_length=1)
+    tone: str | None = None
+    status: SessionSuggestedActionStatus = "suggested"
+    selected_turn_id: str | None = None
+
+
+class SessionSuggestedActionUpdate(BaseModel):
+    source_turn_id: str | None = None
+    action_index: int | None = None
+    label: str | None = Field(default=None, min_length=1, max_length=120)
+    action: str | None = Field(default=None, min_length=1)
+    tone: str | None = None
+    status: SessionSuggestedActionStatus | None = None
+    selected_turn_id: str | None = None
+
+
+class SessionSuggestedActionRecord(SessionSuggestedActionCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    session_id: str
+    created_at: str
+
+
 class KeyEventCreate(BaseModel):
     session_id: str
     chapter_id: str | None = None
+    source_turn_id: str | None = None
     title: str = Field(min_length=1, max_length=180)
     summary: str | None = None
     consequences: str | None = None
@@ -229,6 +268,17 @@ class KeyEventRecord(KeyEventCreate):
     id: str
     project_id: str
     created_at: str
+
+
+class KeyEventUpdate(BaseModel):
+    chapter_id: str | None = None
+    source_turn_id: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    summary: str | None = None
+    consequences: str | None = None
+    related_memory_item_ids: list[str] | None = None
+    related_story_line_ids: list[str] | None = None
+    include_in_draft: bool | None = None
 
 
 class DraftVersionCreate(BaseModel):

@@ -756,7 +756,9 @@ function PrepareResult({ result }: { result: ChapterPrepareResult }) {
           ))}
         </article>
       )}
-      <Link to={`/projects/${result.chapter.project_id}`}>Вернуться в проект</Link>
+      <Link to={`/projects/${result.chapter.project_id}/sessions/${result.session.id}/narrator`}>
+        Открыть рассказчика
+      </Link>
     </div>
   );
 }

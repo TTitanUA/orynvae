@@ -24,6 +24,10 @@
 - During manual frontend testing, verify the relevant user flow in the browser, check for visible UI/layout issues, and inspect the console/network panels for errors.
 - Do not consider frontend work complete based only on unit tests or build success when the change affects visible UI or browser behavior.
 
+## Frontend layout
+
+- A two-column layout means an even 50% / 50% split by default. Use a different ratio only when the task or an existing local pattern explicitly calls for it.
+
 ## Local tools
 
 - In Codex sandbox sessions, `uv` and `pnpm` may not be visible in `PATH` by default.

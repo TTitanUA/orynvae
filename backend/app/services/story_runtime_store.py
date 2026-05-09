@@ -19,6 +19,7 @@ from app.models.story_runtime import (
     ForecastRecord,
     KeyEventCreate,
     KeyEventRecord,
+    KeyEventUpdate,
     MemoryItemCreate,
     MemoryItemRecord,
     MemoryItemStatus,
@@ -28,6 +29,9 @@ from app.models.story_runtime import (
     MemoryProposalStatus,
     SessionTurnCreate,
     SessionTurnRecord,
+    SessionSuggestedActionCreate,
+    SessionSuggestedActionRecord,
+    SessionSuggestedActionUpdate,
     StoryLineCreate,
     StoryLineProgressCreate,
     StoryLineProgressRecord,
@@ -611,11 +615,15 @@ def create_chapter_session(
               tone,
               pace,
               expansion_policy_override,
+              agent_instructions,
+              agent_temperature,
+              agent_top_p,
+              agent_reasoning_effort,
               started_at,
               paused_at,
               completed_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id,
@@ -628,6 +636,10 @@ def create_chapter_session(
                 payload.tone,
                 payload.pace,
                 payload.expansion_policy_override,
+                payload.agent_instructions,
+                payload.agent_temperature,
+                payload.agent_top_p,
+                payload.agent_reasoning_effort,
                 payload.started_at,
                 payload.paused_at,
                 payload.completed_at,
@@ -660,6 +672,19 @@ def get_chapter_session(project_id: str, session_id: str) -> ChapterSessionRecor
             WHERE project_id = ? AND id = ?
             """,
             (project_id, session_id),
+        ).fetchone()
+    return _chapter_session_from_row(row) if row else None
+
+
+def get_chapter_session_by_id(session_id: str) -> ChapterSessionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM chapter_sessions
+            WHERE id = ?
+            """,
+            (session_id,),
         ).fetchone()
     return _chapter_session_from_row(row) if row else None
 
@@ -698,6 +723,10 @@ def update_chapter_session(
         "tone",
         "pace",
         "expansion_policy_override",
+        "agent_instructions",
+        "agent_temperature",
+        "agent_top_p",
+        "agent_reasoning_effort",
         "started_at",
         "paused_at",
         "completed_at",
@@ -765,6 +794,19 @@ def create_session_turn(session_id: str, payload: SessionTurnCreate) -> SessionT
     return next(item for item in list_session_turns(session_id) if item.id == turn_id)
 
 
+def next_session_turn_index(session_id: str) -> int:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT COALESCE(MAX(turn_index), 0) AS max_turn_index
+            FROM session_turns
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+    return int(row["max_turn_index"]) + 1 if row else 1
+
+
 def list_session_turns(session_id: str) -> list[SessionTurnRecord]:
     with _connection() as connection:
         rows = connection.execute(
@@ -779,6 +821,262 @@ def list_session_turns(session_id: str) -> list[SessionTurnRecord]:
     return [_session_turn_from_row(row) for row in rows]
 
 
+def get_session_turn(session_id: str, turn_id: str) -> SessionTurnRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM session_turns
+            WHERE session_id = ? AND id = ?
+            """,
+            (session_id, turn_id),
+        ).fetchone()
+    return _session_turn_from_row(row) if row else None
+
+
+def update_session_turn_flags(
+    session_id: str,
+    turn_id: str,
+    *,
+    is_key_event: bool | None = None,
+    exclude_from_draft: bool | None = None,
+) -> SessionTurnRecord | None:
+    current = get_session_turn(session_id, turn_id)
+    if current is None:
+        return None
+
+    values: dict[str, object] = {}
+    if is_key_event is not None:
+        values["is_key_event"] = int(is_key_event)
+    if exclude_from_draft is not None:
+        values["exclude_from_draft"] = int(exclude_from_draft)
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = [*values.values(), session_id, turn_id]
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE session_turns
+            SET {', '.join(assignments)}
+            WHERE session_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_session_turn(session_id, turn_id)
+
+
+def delete_session_turn_tail(session_id: str, from_turn_index: int) -> list[SessionTurnRecord]:
+    with _connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM session_turns
+            WHERE session_id = ? AND turn_index >= ?
+            ORDER BY turn_index ASC
+            """,
+            (session_id, from_turn_index),
+        ).fetchall()
+        removed_turns = [_session_turn_from_row(row) for row in rows]
+        turn_ids = [turn.id for turn in removed_turns]
+        if not turn_ids:
+            return []
+
+        placeholders = ", ".join("?" for _ in turn_ids)
+        connection.execute(
+            f"""
+            UPDATE session_suggested_actions
+            SET status = 'suggested', selected_turn_id = NULL
+            WHERE session_id = ? AND selected_turn_id IN ({placeholders})
+            """,
+            (session_id, *turn_ids),
+        )
+        connection.execute(
+            f"""
+            DELETE FROM session_suggested_actions
+            WHERE session_id = ? AND source_turn_id IN ({placeholders})
+            """,
+            (session_id, *turn_ids),
+        )
+        connection.execute(
+            f"""
+            DELETE FROM memory_proposals
+            WHERE source_type = 'session_turn' AND source_id IN ({placeholders})
+            """,
+            turn_ids,
+        )
+        connection.execute(
+            f"""
+            DELETE FROM key_events
+            WHERE session_id = ? AND source_turn_id IN ({placeholders})
+            """,
+            (session_id, *turn_ids),
+        )
+        connection.execute(
+            f"""
+            DELETE FROM session_turns
+            WHERE session_id = ? AND id IN ({placeholders})
+            """,
+            (session_id, *turn_ids),
+        )
+        connection.commit()
+    return removed_turns
+
+
+def create_session_suggested_action(
+    session_id: str,
+    payload: SessionSuggestedActionCreate,
+) -> SessionSuggestedActionRecord:
+    action_id = str(uuid4())
+    with _connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO session_suggested_actions (
+              id,
+              session_id,
+              source_turn_id,
+              action_index,
+              label,
+              action,
+              tone,
+              status,
+              selected_turn_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                action_id,
+                session_id,
+                payload.source_turn_id,
+                payload.action_index,
+                payload.label.strip(),
+                payload.action.strip(),
+                payload.tone,
+                payload.status,
+                payload.selected_turn_id,
+            ),
+        )
+        connection.commit()
+    record = get_session_suggested_action(session_id, action_id)
+    if record is None:
+        raise RuntimeError("Created suggested action could not be loaded")
+    return record
+
+
+def list_session_suggested_actions(
+    session_id: str,
+    *,
+    source_turn_id: str | None = None,
+) -> list[SessionSuggestedActionRecord]:
+    conditions = ["session_id = ?"]
+    parameters: list[object] = [session_id]
+    if source_turn_id is not None:
+        conditions.append("source_turn_id = ?")
+        parameters.append(source_turn_id)
+
+    with _connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT *
+            FROM session_suggested_actions
+            WHERE {' AND '.join(conditions)}
+            ORDER BY created_at ASC, action_index ASC
+            """,
+            parameters,
+        ).fetchall()
+    return [_session_suggested_action_from_row(row) for row in rows]
+
+
+def get_session_suggested_action(
+    session_id: str,
+    action_id: str,
+) -> SessionSuggestedActionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM session_suggested_actions
+            WHERE session_id = ? AND id = ?
+            """,
+            (session_id, action_id),
+        ).fetchone()
+    return _session_suggested_action_from_row(row) if row else None
+
+
+def get_session_suggested_action_for_selected_turn(
+    session_id: str,
+    turn_id: str,
+) -> SessionSuggestedActionRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM session_suggested_actions
+            WHERE session_id = ? AND selected_turn_id = ?
+            ORDER BY created_at DESC, action_index ASC
+            LIMIT 1
+            """,
+            (session_id, turn_id),
+        ).fetchone()
+    return _session_suggested_action_from_row(row) if row else None
+
+
+def update_session_suggested_action(
+    session_id: str,
+    action_id: str,
+    payload: SessionSuggestedActionUpdate,
+) -> SessionSuggestedActionRecord | None:
+    current = get_session_suggested_action(session_id, action_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"source_turn_id", "tone", "selected_turn_id"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    for key in ["label", "action"]:
+        if key in values and values[key] is not None:
+            values[key] = values[key].strip()
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = [*values.values(), session_id, action_id]
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE session_suggested_actions
+            SET {', '.join(assignments)}
+            WHERE session_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_session_suggested_action(session_id, action_id)
+
+
+def delete_session_suggested_actions_for_source(
+    session_id: str,
+    source_turn_id: str,
+) -> list[SessionSuggestedActionRecord]:
+    current = list_session_suggested_actions(session_id, source_turn_id=source_turn_id)
+    if not current:
+        return []
+    with _connection() as connection:
+        connection.execute(
+            """
+            DELETE FROM session_suggested_actions
+            WHERE session_id = ? AND source_turn_id = ?
+            """,
+            (session_id, source_turn_id),
+        )
+        connection.commit()
+    return current
+
+
 def create_key_event(project_id: str, payload: KeyEventCreate) -> KeyEventRecord:
     event_id = str(uuid4())
     with _connection() as connection:
@@ -789,6 +1087,7 @@ def create_key_event(project_id: str, payload: KeyEventCreate) -> KeyEventRecord
               project_id,
               session_id,
               chapter_id,
+              source_turn_id,
               title,
               summary,
               consequences,
@@ -796,13 +1095,14 @@ def create_key_event(project_id: str, payload: KeyEventCreate) -> KeyEventRecord
               related_story_line_ids,
               include_in_draft
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 event_id,
                 project_id,
                 payload.session_id,
                 payload.chapter_id,
+                payload.source_turn_id,
                 payload.title.strip(),
                 payload.summary,
                 payload.consequences,
@@ -827,6 +1127,58 @@ def list_key_events(session_id: str) -> list[KeyEventRecord]:
             (session_id,),
         ).fetchall()
     return [_key_event_from_row(row) for row in rows]
+
+
+def get_key_event(session_id: str, event_id: str) -> KeyEventRecord | None:
+    with _connection() as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM key_events
+            WHERE session_id = ? AND id = ?
+            """,
+            (session_id, event_id),
+        ).fetchone()
+    return _key_event_from_row(row) if row else None
+
+
+def update_key_event(
+    session_id: str,
+    event_id: str,
+    payload: KeyEventUpdate,
+) -> KeyEventRecord | None:
+    current = get_key_event(session_id, event_id)
+    if current is None:
+        return None
+
+    values = payload.model_dump(exclude_unset=True)
+    nullable_fields = {"chapter_id", "source_turn_id", "summary", "consequences"}
+    for key in list(values):
+        if values[key] is None and key not in nullable_fields:
+            values.pop(key)
+    if "title" in values and values["title"] is not None:
+        values["title"] = values["title"].strip()
+    for key in ["related_memory_item_ids", "related_story_line_ids"]:
+        if key in values and values[key] is not None:
+            values[key] = _json(values[key])
+    if "include_in_draft" in values and values["include_in_draft"] is not None:
+        values["include_in_draft"] = int(values["include_in_draft"])
+    if not values:
+        return current
+
+    assignments = [f"{key} = ?" for key in values]
+    parameters = [*values.values(), session_id, event_id]
+    with _connection() as connection:
+        connection.execute(
+            f"""
+            UPDATE key_events
+            SET {', '.join(assignments)}
+            WHERE session_id = ? AND id = ?
+            """,
+            parameters,
+        )
+        connection.commit()
+    return get_key_event(session_id, event_id)
 
 
 def create_draft_version(project_id: str, payload: DraftVersionCreate) -> DraftVersionRecord:
@@ -982,6 +1334,10 @@ def _session_turn_from_row(row: sqlite3.Row) -> SessionTurnRecord:
     payload["is_key_event"] = _bool(row["is_key_event"])
     payload["exclude_from_draft"] = _bool(row["exclude_from_draft"])
     return SessionTurnRecord(**payload)
+
+
+def _session_suggested_action_from_row(row: sqlite3.Row) -> SessionSuggestedActionRecord:
+    return SessionSuggestedActionRecord(**dict(row))
 
 
 def _key_event_from_row(row: sqlite3.Row) -> KeyEventRecord:

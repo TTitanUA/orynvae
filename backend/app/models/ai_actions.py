@@ -13,6 +13,7 @@ AiActionType = Literal[
     "suggest_start_points",
     "prepare_chapter_session",
     "narrate_turn",
+    "suggest_turn_actions",
     "summarize_session",
     "extract_key_events",
     "assemble_draft",
@@ -232,6 +233,11 @@ class NarrateTurnOutput(StrictAiModel):
     key_event_candidates: list[AiKeyEventCandidate] = Field(default_factory=list)
     memory_proposal_candidates: list[AiMemoryProposalCandidate] = Field(default_factory=list)
     story_line_update_candidates: list[AiStoryLineUpdateCandidate] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SuggestTurnActionsOutput(StrictAiModel):
+    suggested_actions: list[AiSuggestedAction] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 

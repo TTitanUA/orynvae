@@ -124,8 +124,36 @@ export type ChapterSummary = {
   updated_at: string;
 };
 
+export type ChapterSessionSummary = {
+  id: string;
+  project_id: string;
+  chapter_id: string | null;
+  status: "preparing" | "active" | "paused" | "completed" | "draft_ready" | "reviewed";
+  user_role: string | null;
+  controlled_character_ids: string[];
+  active_story_line_ids: string[];
+  tone: string | null;
+  pace: string | null;
+  expansion_policy_override: string | null;
+  agent_instructions: string | null;
+  agent_temperature: number | null;
+  agent_top_p: number | null;
+  agent_reasoning_effort: "low" | "medium" | "high" | null;
+  started_at: string | null;
+  paused_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WorkspaceNextStep = {
-  code: "configure_ai" | "prepare_first_chapter" | "review_memory" | "continue_story";
+  code:
+    | "configure_ai"
+    | "prepare_first_chapter"
+    | "continue_session"
+    | "open_session_log"
+    | "review_memory"
+    | "continue_story";
   label: string;
   detail: string | null;
   href: string | null;
@@ -151,5 +179,6 @@ export type ProjectWorkspaceSummary = {
   active_story_lines: StoryLineSummary[];
   planned_chapter: ChapterSummary | null;
   latest_chapter: ChapterSummary | null;
+  active_session: ChapterSessionSummary | null;
   warnings: string[];
 };

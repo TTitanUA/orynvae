@@ -8,6 +8,7 @@ from app.models.projects import ProjectRecord
 from app.models.runtime import RuntimeStatus
 from app.models.story_runtime import (
     ChapterRecord,
+    ChapterSessionRecord,
     MemoryItemCreate,
     MemoryItemRecord,
     MemoryItemStatus,
@@ -73,7 +74,14 @@ class MemoryConflictCheckResponse(MemoryApiModel):
 
 
 class WorkspaceNextStep(MemoryApiModel):
-    code: Literal["configure_ai", "prepare_first_chapter", "review_memory", "continue_story"]
+    code: Literal[
+        "configure_ai",
+        "prepare_first_chapter",
+        "continue_session",
+        "open_session_log",
+        "review_memory",
+        "continue_story",
+    ]
     label: str
     detail: str | None = None
     href: str | None = None
@@ -99,4 +107,5 @@ class ProjectWorkspaceSummary(MemoryApiModel):
     active_story_lines: list[StoryLineRecord] = Field(default_factory=list)
     planned_chapter: ChapterRecord | None = None
     latest_chapter: ChapterRecord | None = None
+    active_session: ChapterSessionRecord | None = None
     warnings: list[str] = Field(default_factory=list)
