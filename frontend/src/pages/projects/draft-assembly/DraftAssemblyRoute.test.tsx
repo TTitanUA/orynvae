@@ -191,6 +191,7 @@ function detail() {
 describe("DraftAssemblyRoute", () => {
   it("uses project-level AI settings for draft assembly and AI assist", async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      void init;
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary());
       }

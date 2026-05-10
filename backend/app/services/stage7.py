@@ -193,6 +193,23 @@ def update_draft(
     return DraftUpdateResponse(chapter=chapter, draft_version=draft) if chapter else None
 
 
+EDITOR_ASSIST_ACTION_INSTRUCTIONS: dict[str, str] = {
+    "rewrite_simpler": "Rewrite the selected markdown more simply while preserving meaning.",
+    "rewrite_expressive": "Rewrite the selected markdown with stronger literary expression.",
+    "strengthen_conflict": "Strengthen the conflict in the selected markdown without adding unconfirmed canon.",
+    "strengthen_emotion": "Strengthen the emotional subtext in the selected markdown.",
+    "improve_dialogue": "Make dialogue more natural, distinct and subtext-rich.",
+    "add_atmosphere": "Add atmospheric detail while keeping the same scene facts.",
+    "shorten": "Shorten the selected markdown without losing the key event.",
+    "explain_weakness": "Explain why the selected markdown is weak and propose a concise replacement.",
+    "suggest_variants": "Suggest a strong replacement and include three variant directions in warnings if useful.",
+    "improve_rhythm": "Improve the rhythm of the whole draft without changing canon.",
+    "expand": "Expand the draft passage with concrete sensory and emotional detail.",
+    "check_coherence": "Check coherence and propose the smallest markdown change that improves it.",
+    "suggest_title": "Suggest a chapter title and a compact markdown heading if appropriate.",
+}
+
+
 async def assist_draft(
     project_id: str,
     chapter_id: str,
@@ -203,10 +220,19 @@ async def assist_draft(
     if project is None or chapter is None:
         return None
     runtime_status.require_creative_write(project_id)
-    latest = story_runtime_store.get_latest_draft_version(project_id, chapter_id)
-    draft_markdown = latest.markdown if latest is not None else chapter.draft_markdown
+    latest = (
+        story_runtime_store.get_draft_version(project_id, payload.source_draft_version_id)
+        if payload.source_draft_version_id
+        else story_runtime_store.get_latest_draft_version(project_id, chapter_id)
+    )
+    if payload.source_draft_version_id and (latest is None or latest.chapter_id != chapter_id):
+        raise Stage7Error("Draft version was not found", status_code=HTTPStatus.NOT_FOUND)
+    draft_markdown = payload.draft_markdown if payload.draft_markdown is not None else (
+        latest.markdown if latest is not None else chapter.draft_markdown
+    )
     if not draft_markdown.strip():
         raise Stage7Error("Chapter has no draft markdown to edit", status_code=HTTPStatus.CONFLICT)
+    _validate_editor_selection(payload, draft_markdown)
 
     session = (
         story_runtime_store.get_chapter_session(project_id, chapter.session_id)
@@ -214,11 +240,30 @@ async def assist_draft(
         else None
     )
     turns = story_runtime_store.list_session_turns(session.id) if session else []
+    key_events = story_runtime_store.list_key_events(session.id) if session else []
+    action_instruction = (
+        EDITOR_ASSIST_ACTION_INSTRUCTIONS.get(payload.action_key or "")
+        if payload.action_key
+        else None
+    )
+    combined_instructions = "\n".join(
+        item
+        for item in [action_instruction, payload.instructions]
+        if item
+    )
     result = await project_ai_settings.execute_project_action(
         project_id=project_id,
         action_type="edit_markdown_fragment",
         input={
-            "instructions": payload.instructions,
+            "scope": payload.scope,
+            "action_key": payload.action_key,
+            "instructions": combined_instructions,
+            "selection_range": (
+                payload.selection_range.model_dump(mode="json", by_alias=True)
+                if payload.selection_range
+                else None
+            ),
+            "source_draft_version_id": payload.source_draft_version_id,
             "language": "ru",
         },
         context=AiActionContext(
@@ -231,7 +276,22 @@ async def assist_draft(
             turns=[turn.model_dump(mode="json") for turn in turns],
             draft_markdown=draft_markdown,
             selection_markdown=payload.selection_markdown,
-            instructions=payload.instructions,
+            instructions=combined_instructions,
+            extra={
+                "key_events": [event.model_dump(mode="json") for event in key_events],
+                "source_turn_ids": payload.source_turn_ids,
+                "related_memory_item_ids": payload.related_memory_item_ids,
+                "related_story_line_ids": payload.related_story_line_ids,
+                "editor_assist": {
+                    "scope": payload.scope,
+                    "action_key": payload.action_key,
+                    "selection_range": (
+                        payload.selection_range.model_dump(mode="json", by_alias=True)
+                        if payload.selection_range
+                        else None
+                    ),
+                },
+            },
         ),
         privacy_level="project",
     )
@@ -240,7 +300,21 @@ async def assist_draft(
         replacement_markdown=output.replacement_markdown,
         rationale=output.rationale,
         warnings=output.warnings,
+        variants=[],
     )
+
+
+def _validate_editor_selection(payload: DraftAssistRequest, draft_markdown: str) -> None:
+    if payload.scope == "selection" and payload.selection_range is None and not payload.selection_markdown.strip():
+        raise Stage7Error("Selection markdown is required for selection assist")
+    if payload.selection_range is None:
+        return
+    start = payload.selection_range.from_
+    end = payload.selection_range.to
+    if end < start or end > len(draft_markdown):
+        raise Stage7Error("Selection range is outside the current markdown")
+    if draft_markdown[start:end] != payload.selection_markdown:
+        raise Stage7Error("Selection range does not match selected markdown")
 
 
 def get_review(project_id: str, chapter_id: str) -> ChapterReviewResponse | None:

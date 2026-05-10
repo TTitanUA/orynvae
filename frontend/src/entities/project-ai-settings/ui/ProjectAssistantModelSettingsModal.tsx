@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, PlugZap, Save, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -29,6 +29,14 @@ type ProjectAssistantModelSettingsModalProps = {
   projectId: string;
 };
 
+type ProjectAiModalDraft = {
+  key: string;
+  providerId: string;
+  modelId: string;
+  defaultTemperature: number;
+  defaultTopP: number;
+};
+
 export function ProjectAssistantModelSettingsModal({
   onClose,
   open,
@@ -53,10 +61,35 @@ export function ProjectAssistantModelSettingsModal({
     [providersQuery.data],
   );
   const selectableProviders = useMemo(() => selectableAiProviders(providers), [providers]);
-  const [providerId, setProviderId] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [defaultTemperature, setDefaultTemperature] = useState(0.7);
-  const [defaultTopP, setDefaultTopP] = useState(0.9);
+  const [draft, setDraft] = useState<ProjectAiModalDraft | null>(null);
+  const serverDraft = useMemo<ProjectAiModalDraft | null>(() => {
+    if (!open || !settings) {
+      return null;
+    }
+    const nextProvider = providerById(providers, settings.active_provider_id);
+    const fallbackProvider = nextProvider || selectableProviders[0];
+    const nextModel =
+      modelById(nextProvider, settings.active_model_id) || defaultAllowedModel(fallbackProvider);
+    return {
+      key: [
+        settings.project_id,
+        settings.active_provider_id || "",
+        settings.active_model_id || "",
+        settings.default_temperature,
+        settings.default_top_p,
+        selectableProviders.map((provider) => provider.id).join(","),
+      ].join(":"),
+      providerId: fallbackProvider?.id || "",
+      modelId: nextModel?.model_id || "",
+      defaultTemperature: settings.default_temperature,
+      defaultTopP: settings.default_top_p,
+    };
+  }, [open, providers, selectableProviders, settings]);
+  const effectiveDraft = draft && draft.key === serverDraft?.key ? draft : serverDraft;
+  const providerId = effectiveDraft?.providerId || "";
+  const modelId = effectiveDraft?.modelId || "";
+  const defaultTemperature = effectiveDraft?.defaultTemperature ?? 0.7;
+  const defaultTopP = effectiveDraft?.defaultTopP ?? 0.9;
 
   const selectedProvider = providerById(providers, providerId || null);
   const selectedModels = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
@@ -64,41 +97,39 @@ export function ProjectAssistantModelSettingsModal({
     modelById(selectedProvider, modelId || null) || defaultAllowedModel(selectedProvider);
   const selectedModelSupportsTopP = topPEnabled(selectedModel);
 
-  useEffect(() => {
-    if (!open || !settings) {
-      return;
-    }
-    const nextProvider = providerById(providers, settings.active_provider_id);
-    const fallbackProvider = nextProvider || selectableProviders[0];
-    const nextModel =
-      modelById(nextProvider, settings.active_model_id) ||
-      defaultAllowedModel(fallbackProvider);
-    setProviderId(fallbackProvider?.id || "");
-    setModelId(nextModel?.model_id || "");
-    setDefaultTemperature(settings.default_temperature);
-    setDefaultTopP(settings.default_top_p);
-  }, [open, providers, selectableProviders, settings]);
-
   if (!open) {
     return null;
   }
 
   function saveSettings() {
-    if (!settings) {
+    if (!settings || !effectiveDraft) {
       return;
     }
     updateMutation.mutate({
-      active_provider_id: providerId || null,
-      active_model_id: modelId || null,
-      default_temperature: defaultTemperature,
-      default_top_p: defaultTopP,
+      active_provider_id: effectiveDraft.providerId || null,
+      active_model_id: effectiveDraft.modelId || null,
+      default_temperature: effectiveDraft.defaultTemperature,
+      default_top_p: effectiveDraft.defaultTopP,
     });
   }
 
   function changeProvider(nextProviderId: string) {
     const nextProvider = providerById(providers, nextProviderId);
-    setProviderId(nextProviderId);
-    setModelId(defaultAllowedModel(nextProvider)?.model_id || "");
+    if (!effectiveDraft) {
+      return;
+    }
+    setDraft({
+      ...effectiveDraft,
+      providerId: nextProviderId,
+      modelId: defaultAllowedModel(nextProvider)?.model_id || "",
+    });
+  }
+
+  function patchDraft(patch: Partial<Omit<ProjectAiModalDraft, "key">>) {
+    if (!effectiveDraft) {
+      return;
+    }
+    setDraft({ ...effectiveDraft, ...patch });
   }
 
   const loading = settingsQuery.isPending || providersQuery.isPending;
@@ -170,7 +201,7 @@ export function ProjectAssistantModelSettingsModal({
                   <select
                     disabled={!selectedProvider || updateMutation.isPending}
                     name="project-ai-model"
-                    onChange={(event) => setModelId(event.target.value)}
+                    onChange={(event) => patchDraft({ modelId: event.target.value })}
                     value={modelId}
                   >
                     {selectedModels.length === 0 && <option value="">Нет разрешенных</option>}
@@ -188,7 +219,7 @@ export function ProjectAssistantModelSettingsModal({
                   max={2}
                   min={0}
                   name="project-ai-default-temperature"
-                  onChange={setDefaultTemperature}
+                  onChange={(value) => patchDraft({ defaultTemperature: value })}
                   step={0.05}
                   value={defaultTemperature}
                 />
@@ -198,7 +229,7 @@ export function ProjectAssistantModelSettingsModal({
                   max={1}
                   min={0}
                   name="project-ai-default-top-p"
-                  onChange={setDefaultTopP}
+                  onChange={(value) => patchDraft({ defaultTopP: value })}
                   step={0.05}
                   value={defaultTopP}
                 />

@@ -2,6 +2,7 @@ import { Navigate, useParams } from "react-router-dom";
 
 import { HomeRoute } from "../../pages/home/HomeRoute";
 import { ChaptersRoute } from "../../pages/projects/chapters/ChaptersRoute";
+import { ChapterEditorRoute } from "../../pages/projects/chapter-editor/ChapterEditorRoute";
 import { ChapterReviewRoute } from "../../pages/projects/chapter-review/ChapterReviewRoute";
 import { ChapterPrepareRoute } from "../../pages/projects/chapter-prepare/ChapterPrepareRoute";
 import { DraftAssemblyRoute } from "../../pages/projects/draft-assembly/DraftAssemblyRoute";
@@ -126,6 +127,19 @@ export function ChapterReviewRouteFromParams() {
   }
 
   return <ChapterReviewRoute chapterId={chapterId} projectId={projectId} />;
+}
+
+export function ChapterEditorRouteFromParams() {
+  const { chapterId, projectId } = useParams<{
+    chapterId: string;
+    projectId: string;
+  }>();
+
+  if (!projectId || !chapterId) {
+    return <HomeRoute />;
+  }
+
+  return <ChapterEditorRoute chapterId={chapterId} projectId={projectId} />;
 }
 
 export function ForecastRouteFromParams() {

@@ -1,0 +1,225 @@
+.chapter-editor-route {
+  display: grid;
+  gap: 18px;
+}
+
+.chapter-editor-route__header,
+.chapter-editor-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.chapter-editor-route__header {
+  align-items: end;
+}
+
+.chapter-editor-route__header h1 {
+  margin: 8px 0 4px;
+}
+
+.chapter-editor-route__header p,
+.chapter-editor-panel p,
+.chapter-editor-selection {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.chapter-editor-route__back {
+  align-items: center;
+  color: var(--color-accent);
+  display: inline-flex;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.chapter-editor-route__status {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.chapter-editor-route__status strong {
+  color: var(--color-accent);
+}
+
+.chapter-editor-toolbar {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 12px 16px;
+}
+
+.chapter-editor-toolbar__facts,
+.chapter-editor-toolbar__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chapter-editor-toolbar__facts span {
+  color: var(--color-text-muted);
+}
+
+.chapter-editor-toolbar__actions a,
+.chapter-editor-toolbar__actions button,
+.chapter-editor-assist-group button,
+.chapter-editor-suggestion__actions button,
+.chapter-editor-blocker button {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  text-decoration: none;
+}
+
+.chapter-editor-toolbar__actions button,
+.chapter-editor-suggestion__actions button:first-child {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+}
+
+.chapter-editor-toolbar__actions button:disabled,
+.chapter-editor-assist-group button:disabled,
+.chapter-editor-suggestion__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.chapter-editor-surface,
+.chapter-editor-side {
+  min-width: 0;
+}
+
+.chapter-editor-side {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+}
+
+.chapter-editor-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.chapter-editor-panel h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.chapter-editor-panel__title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.chapter-editor-assist-group {
+  display: grid;
+  gap: 8px;
+}
+
+.chapter-editor-assist-group > span,
+.chapter-editor-suggestion label span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.chapter-editor-assist-group div,
+.chapter-editor-suggestion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chapter-editor-suggestion textarea {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  min-width: 0;
+  padding: 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.chapter-editor-events,
+.chapter-editor-context-list {
+  display: grid;
+  gap: 10px;
+}
+
+.chapter-editor-events div,
+.chapter-editor-context-list div {
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.chapter-editor-events strong,
+.chapter-editor-context-list strong {
+  overflow-wrap: anywhere;
+}
+
+.chapter-editor-events span,
+.chapter-editor-context-list span {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.chapter-editor-blocker {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  bottom: 24px;
+  box-shadow: 0 12px 40px rgb(29 36 34 / 16%);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  left: 50%;
+  min-width: 620px;
+  padding: 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.chapter-editor-blocker div {
+  display: grid;
+  gap: 2px;
+}
+
+.chapter-editor-blocker span {
+  color: var(--color-text-muted);
+}
+
+.is-spinning {
+  animation: chapter-editor-spin 0.9s linear infinite;
+}
+
+@keyframes chapter-editor-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

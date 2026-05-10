@@ -114,6 +114,9 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
   const reviewHref = detail?.chapter?.id
     ? `/projects/${projectId}/chapters/${detail.chapter.id}/review`
     : `/projects/${projectId}`;
+  const editorHref = detail?.chapter?.id
+    ? `/projects/${projectId}/chapters/${detail.chapter.id}/editor`
+    : `/projects/${projectId}`;
 
   function submitAssembly(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -352,6 +355,9 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
                     <Save size={15} aria-hidden="true" />
                     Сохранить markdown
                   </button>
+                  <Link className="draft-next-link" to={editorHref}>
+                    Редактор
+                  </Link>
                   <Link className="draft-next-link" to={reviewHref}>
                     К разбору
                   </Link>

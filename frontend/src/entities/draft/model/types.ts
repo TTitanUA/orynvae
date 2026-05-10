@@ -11,6 +11,26 @@ export type DraftMode =
 
 export type DraftStatus = "generated" | "edited" | "accepted";
 export type DraftReasoningEffort = "low" | "medium" | "high";
+export type DraftAssistScope = "selection" | "document";
+export type DraftAssistActionKey =
+  | "rewrite_simpler"
+  | "rewrite_expressive"
+  | "strengthen_conflict"
+  | "strengthen_emotion"
+  | "improve_dialogue"
+  | "add_atmosphere"
+  | "shorten"
+  | "explain_weakness"
+  | "suggest_variants"
+  | "improve_rhythm"
+  | "expand"
+  | "check_coherence"
+  | "suggest_title";
+
+export type DraftAssistSelectionRange = {
+  from: number;
+  to: number;
+};
 
 export type DraftVersion = {
   id: string;
@@ -55,7 +75,15 @@ export type DraftUpdateResponse = {
 };
 
 export type DraftAssistPayload = {
+  scope?: DraftAssistScope;
+  action_key?: DraftAssistActionKey | null;
   selection_markdown: string;
+  selection_range?: DraftAssistSelectionRange | null;
+  draft_markdown?: string | null;
+  source_draft_version_id?: string | null;
+  source_turn_ids?: string[];
+  related_memory_item_ids?: string[];
+  related_story_line_ids?: string[];
   instructions: string;
   provider_id?: string | null;
   model_id?: string | null;
@@ -68,4 +96,5 @@ export type DraftAssistResponse = {
   replacement_markdown: string;
   rationale: string | null;
   warnings: string[];
+  variants: string[];
 };

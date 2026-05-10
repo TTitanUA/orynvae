@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, LoaderCircle, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { memoryQueryKeys } from "../../memory";
 import { projectQueryKeys } from "../../project";
@@ -13,7 +13,6 @@ import { projectAiSettingsQueryKeys } from "../model/project-ai-settings-query-k
 import type {
   ProjectAgentKey,
   ProjectAgentSettingSource,
-  ProjectAgentSettings,
 } from "../model/types";
 import "./ProjectAgentSettingsCard.css";
 
@@ -58,18 +57,18 @@ export function ProjectAgentSettingsCard({
   const agents = Array.isArray(settings?.agents) ? settings.agents : [];
   const agent = agents.find((item) => item.agent_key === agentKey);
   const [draft, setDraft] = useState<AgentDraft | null>(null);
-
-  useEffect(() => {
+  const serverDraft = useMemo<AgentDraft | null>(() => {
     if (!settings || !agent) {
-      return;
+      return null;
     }
-    setDraft({
+    return {
       temperatureSource: agent.temperature_source,
       temperatureValue: agent.temperature_value ?? agent.effective_temperature,
       topPSource: agent.top_p_source,
       topPValue: agent.top_p_value ?? agent.effective_top_p ?? settings.default_top_p,
-    });
+    };
   }, [agent, settings]);
+  const effectiveDraft = draft ?? serverDraft;
 
   const rootClassName = ["project-agent-settings", className].filter(Boolean).join(" ");
   const blocked = disabled || updateMutation.isPending;
@@ -80,17 +79,18 @@ export function ProjectAgentSettingsCard({
     .map((error) => error.message);
 
   function saveSettings() {
-    if (!draft) {
+    if (!effectiveDraft) {
       return;
     }
     updateMutation.mutate({
       agents: [
         {
           agent_key: agentKey,
-          temperature_source: draft.temperatureSource,
-          temperature_value: draft.temperatureSource === "custom" ? draft.temperatureValue : null,
-          top_p_source: draft.topPSource,
-          top_p_value: draft.topPSource === "custom" ? draft.topPValue : null,
+          temperature_source: effectiveDraft.temperatureSource,
+          temperature_value:
+            effectiveDraft.temperatureSource === "custom" ? effectiveDraft.temperatureValue : null,
+          top_p_source: effectiveDraft.topPSource,
+          top_p_value: effectiveDraft.topPSource === "custom" ? effectiveDraft.topPValue : null,
         },
       ],
     });
@@ -127,11 +127,11 @@ export function ProjectAgentSettingsCard({
         <NoticeBlock tone="error">Настройки этого ассистента не найдены.</NoticeBlock>
       )}
 
-      {settings && agent && draft && (
+      {settings && agent && effectiveDraft && (
         <>
           <div className="project-agent-settings__grid">
             <AgentParameterField
-              customValue={draft.temperatureValue}
+              customValue={effectiveDraft.temperatureValue}
               disabled={blocked}
               effectiveValue={agent.effective_temperature}
               label="Температура"
@@ -139,34 +139,54 @@ export function ProjectAgentSettingsCard({
               name={`${agentKey}-temperature`}
               onSourceChange={(source) =>
                 setDraft((current) =>
-                  current ? { ...current, temperatureSource: source } : current,
+                  current
+                    ? { ...current, temperatureSource: source }
+                    : effectiveDraft
+                      ? { ...effectiveDraft, temperatureSource: source }
+                      : current,
                 )
               }
               onValueChange={(value) =>
                 setDraft((current) =>
-                  current ? { ...current, temperatureValue: value } : current,
+                  current
+                    ? { ...current, temperatureValue: value }
+                    : effectiveDraft
+                      ? { ...effectiveDraft, temperatureValue: value }
+                      : current,
                 )
               }
               presetValue={agent.preset_temperature}
               projectValue={settings.default_temperature}
-              source={draft.temperatureSource}
+              source={effectiveDraft.temperatureSource}
             />
             <AgentParameterField
-              customValue={draft.topPValue}
+              customValue={effectiveDraft.topPValue}
               disabled={blocked || !canEditTopP}
               effectiveValue={agent.effective_top_p}
               label="Top P"
               max={1}
               name={`${agentKey}-top-p`}
               onSourceChange={(source) =>
-                setDraft((current) => (current ? { ...current, topPSource: source } : current))
+                setDraft((current) =>
+                  current
+                    ? { ...current, topPSource: source }
+                    : effectiveDraft
+                      ? { ...effectiveDraft, topPSource: source }
+                      : current,
+                )
               }
               onValueChange={(value) =>
-                setDraft((current) => (current ? { ...current, topPValue: value } : current))
+                setDraft((current) =>
+                  current
+                    ? { ...current, topPValue: value }
+                    : effectiveDraft
+                      ? { ...effectiveDraft, topPValue: value }
+                      : current,
+                )
               }
               presetValue={agent.preset_top_p}
               projectValue={settings.default_top_p}
-              source={draft.topPSource}
+              source={effectiveDraft.topPSource}
             />
           </div>
           {!canEditTopP && (

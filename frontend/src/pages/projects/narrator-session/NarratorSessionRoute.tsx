@@ -14,7 +14,7 @@ import {
   Square,
   Undo2,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import {
@@ -72,7 +72,10 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
   const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
   const [replayComment, setReplayComment] = useState("");
   const [actionPrompt, setActionPrompt] = useState("");
-  const [agentInstructions, setAgentInstructions] = useState("");
+  const [agentInstructionsDraft, setAgentInstructionsDraft] = useState<{
+    key: string;
+    value: string;
+  } | null>(null);
 
   const activeTab: TabId = searchParams.get("tab") === "log" ? "log" : "scene";
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
@@ -82,6 +85,13 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
   const summary = summaryQuery.data;
   const readOnly = Boolean(summary?.runtime.read_only);
   const session = detail?.session;
+  const agentInstructionsKey = session
+    ? `${session.id}:${session.updated_at}:${session.agent_instructions || ""}`
+    : "no-session";
+  const agentInstructions =
+    agentInstructionsDraft?.key === agentInstructionsKey
+      ? agentInstructionsDraft.value
+      : session?.agent_instructions || "";
   const turns = useMemo(() => detail?.turns || [], [detail?.turns]);
   const latestAiTurn = useMemo(
     () => [...turns].reverse().find((turn) => turn.actor_type === "ai") || null,
@@ -132,16 +142,9 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
     .filter((error): error is Error => error instanceof Error)
     .map((error) => error.message);
 
-  useEffect(() => {
-    if (!session) {
-      return;
-    }
-    setAgentInstructions(session.agent_instructions || "");
-  }, [
-    session?.id,
-    session?.updated_at,
-    session?.agent_instructions,
-  ]);
+  function setAgentInstructions(value: string) {
+    setAgentInstructionsDraft({ key: agentInstructionsKey, value });
+  }
 
   function invalidateWorkspace() {
     void queryClient.invalidateQueries({ queryKey: memoryQueryKeys.workspaceSummary(projectId) });

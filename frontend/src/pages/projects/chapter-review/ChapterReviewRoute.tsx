@@ -103,6 +103,7 @@ export function ChapterReviewRoute({ projectId, chapterId }: ChapterReviewRouteP
   const hasDecisionChanges =
     Object.keys(memoryDecisions).length + Object.keys(lineDecisions).length + Object.keys(noteDecisions).length > 0;
   const forecastHref = `/projects/${projectId}/chapters/${chapterId}/forecast`;
+  const editorHref = `/projects/${projectId}/chapters/${chapterId}/editor`;
 
   function applyDecisions() {
     if (!review || !hasDecisionChanges || readOnly) {
@@ -189,6 +190,7 @@ export function ChapterReviewRoute({ projectId, chapterId }: ChapterReviewRouteP
                   <Check size={15} aria-hidden="true" />
                   Применить решения
                 </button>
+                <Link to={editorHref}>Редактор</Link>
                 <Link to={forecastHref}>К прогнозу</Link>
               </div>
             </section>

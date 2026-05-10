@@ -403,6 +403,97 @@ def test_forecast_requires_saved_draft_before_calling_ai(tmp_path, monkeypatch):
     assert adapter.complete_calls == []
 
 
+def test_draft_assist_uses_current_editor_markdown_without_persisting_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    project = _create_project(client)
+    project_id = str(project["id"])
+    _character, _line, chapter, session, *_rest = _completed_session(project_id)
+    saved = story_runtime_store.create_draft_version(
+        project_id,
+        DraftVersionCreate(
+            chapter_id=chapter.id,
+            source_session_id=session.id,
+            mode="literary",
+            markdown="Сохраненный markdown.",
+        ),
+    )
+    story_runtime_store.update_chapter(
+        project_id,
+        chapter.id,
+        ChapterUpdate(draft_markdown=saved.markdown, session_id=session.id),
+    )
+    adapter = QueueAdapter(
+        responses=[
+            """
+            {
+              "replacement_markdown": "Текущий markdown стал выразительнее.",
+              "rationale": "Выделение обновлено без сохранения.",
+              "warnings": []
+            }
+            """
+        ]
+    )
+    monkeypatch.setattr(ai_service, "create_adapter", lambda provider, api_key: adapter)
+
+    current_markdown = "Текущий markdown с несохраненной правкой."
+    start = current_markdown.index("markdown")
+    end = start + len("markdown")
+    response = client.post(
+        f"/api/projects/{project_id}/chapters/{chapter.id}/draft/assist",
+        json={
+            "scope": "selection",
+            "action_key": "rewrite_expressive",
+            "selection_markdown": "markdown",
+            "selection_range": {"from": start, "to": end},
+            "draft_markdown": current_markdown,
+            "source_draft_version_id": saved.id,
+            "instructions": "Сделай выразительнее.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["replacement_markdown"].startswith("Текущий markdown")
+    ai_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
+    assert ai_payload["input"]["action_key"] == "rewrite_expressive"
+    assert ai_payload["context"]["draft_markdown"] == current_markdown
+    assert ai_payload["context"]["selection_markdown"] == "markdown"
+    assert story_runtime_store.get_latest_draft_version(project_id, chapter.id).markdown == saved.markdown
+
+
+def test_draft_assist_rejects_mismatched_editor_selection(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    project = _create_project(client)
+    project_id = str(project["id"])
+    _character, _line, chapter, session, *_rest = _completed_session(project_id)
+    draft = story_runtime_store.create_draft_version(
+        project_id,
+        DraftVersionCreate(
+            chapter_id=chapter.id,
+            source_session_id=session.id,
+            markdown="Верный markdown.",
+        ),
+    )
+    adapter = QueueAdapter(responses=[])
+    monkeypatch.setattr(ai_service, "create_adapter", lambda provider, api_key: adapter)
+
+    response = client.post(
+        f"/api/projects/{project_id}/chapters/{chapter.id}/draft/assist",
+        json={
+            "selection_markdown": "другой",
+            "selection_range": {"from": 0, "to": 6},
+            "draft_markdown": draft.markdown,
+            "source_draft_version_id": draft.id,
+            "instructions": "Сделай выразительнее.",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "does not match" in response.json()["detail"]
+    assert adapter.complete_calls == []
+
+
 def test_stage7_reads_work_without_ai_but_mutations_are_blocked(tmp_path, monkeypatch):
     monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
     client = TestClient(app)

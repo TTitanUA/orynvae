@@ -24,6 +24,22 @@ ChapterReviewLineUpdateStatus = Literal["pending", "accepted", "rejected", "defe
 ChapterReviewNoteType = Literal["contradiction", "open_question"]
 ChapterReviewNoteStatus = Literal["pending", "resolved", "rejected", "deferred"]
 ChapterReviewDecisionStatus = Literal["accepted", "edited", "rejected", "deferred"]
+DraftAssistScope = Literal["selection", "document"]
+DraftAssistActionKey = Literal[
+    "rewrite_simpler",
+    "rewrite_expressive",
+    "strengthen_conflict",
+    "strengthen_emotion",
+    "improve_dialogue",
+    "add_atmosphere",
+    "shorten",
+    "explain_weakness",
+    "suggest_variants",
+    "improve_rhythm",
+    "expand",
+    "check_coherence",
+    "suggest_title",
+]
 
 
 class Stage7ApiModel(BaseModel):
@@ -61,8 +77,21 @@ class DraftUpdateResponse(Stage7ApiModel):
     draft_version: DraftVersionRecord
 
 
+class EditorSelectionRange(Stage7ApiModel):
+    from_: int = Field(ge=0, alias="from")
+    to: int = Field(ge=0)
+
+
 class DraftAssistRequest(Stage7ApiModel):
-    selection_markdown: str = Field(min_length=1, max_length=12000)
+    scope: DraftAssistScope = "selection"
+    action_key: DraftAssistActionKey | None = None
+    selection_markdown: str = Field(min_length=1, max_length=200000)
+    selection_range: EditorSelectionRange | None = None
+    draft_markdown: str | None = Field(default=None, max_length=200000)
+    source_draft_version_id: str | None = None
+    source_turn_ids: list[str] = Field(default_factory=list)
+    related_memory_item_ids: list[str] = Field(default_factory=list)
+    related_story_line_ids: list[str] = Field(default_factory=list)
     instructions: str = Field(min_length=1, max_length=4000)
     provider_id: str | None = None
     model_id: str | None = None
@@ -75,6 +104,7 @@ class DraftAssistResponse(Stage7ApiModel):
     replacement_markdown: str
     rationale: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    variants: list[str] = Field(default_factory=list)
 
 
 class ChapterReviewCreate(Stage7ApiModel):

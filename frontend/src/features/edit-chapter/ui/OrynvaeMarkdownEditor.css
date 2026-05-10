@@ -1,0 +1,41 @@
+.orynvae-markdown-editor {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-height: 560px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.orynvae-markdown-editor .cm-editor {
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-height: 560px;
+}
+
+.orynvae-markdown-editor .cm-focused {
+  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 68%);
+  outline-offset: -2px;
+}
+
+.orynvae-markdown-editor .cm-gutters {
+  background: var(--color-surface-subtle);
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.orynvae-markdown-editor .cm-activeLine,
+.orynvae-markdown-editor .cm-activeLineGutter {
+  background: color-mix(in srgb, var(--color-accent), transparent 92%);
+}
+
+.orynvae-markdown-editor .cm-selectionBackground,
+.orynvae-markdown-editor .cm-content ::selection {
+  background: color-mix(in srgb, var(--color-accent), transparent 72%);
+}
+
+.orynvae-markdown-editor__suggestion,
+.orynvae-markdown-editor__decoration {
+  background: color-mix(in srgb, #d7b75f, transparent 62%);
+  border-bottom: 2px solid #b98b1d;
+}

@@ -125,6 +125,7 @@ function ChapterCard({ chapter, projectId }: { chapter: Chapter; projectId: stri
     ? `/projects/${projectId}/sessions/${chapter.session_id}/narrator`
     : null;
   const reviewHref = `/projects/${projectId}/chapters/${chapter.id}/review`;
+  const editorHref = `/projects/${projectId}/chapters/${chapter.id}/editor`;
   const prepareHref = `/projects/${projectId}/chapters/${chapter.id}/prepare`;
 
   return (
@@ -167,6 +168,7 @@ function ChapterCard({ chapter, projectId }: { chapter: Chapter; projectId: stri
             Открыть сессию
           </Link>
         )}
+        {ready && <Link to={editorHref}>Редактор</Link>}
         {ready && <Link to={reviewHref}>Разбор</Link>}
         <Link to={prepareHref}>Подготовка</Link>
       </div>
