@@ -153,6 +153,8 @@ class StartStoryConfirmRequest(StartStoryBaseModel):
     understood_synopsis: str | None = Field(default=None, max_length=8000)
     provider_id: str | None = None
     model_id: str | None = None
+    default_temperature: float = Field(default=0.7, ge=0, le=2)
+    default_top_p: float = Field(default=0.9, ge=0, le=1)
     expansion_policy: ExpansionPolicy = "ask"
     memory_items: list[StartStoryMemoryCandidate] = Field(default_factory=list)
     story_lines: list[StartStoryLineCandidate] = Field(default_factory=list)

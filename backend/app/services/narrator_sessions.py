@@ -7,7 +7,6 @@ from http import HTTPStatus
 from app.ai import service as ai_service
 from app.models.ai_actions import (
     AiActionContext,
-    AiActionRequest,
     AiSuggestedAction,
     NarrateTurnOutput,
     SuggestTurnActionsOutput,
@@ -45,7 +44,7 @@ from app.models.story_runtime import (
     SessionTurnRecord,
     StoryLineRecord,
 )
-from app.services import project_store, runtime_status, story_runtime_store
+from app.services import project_ai_settings, project_store, runtime_status, story_runtime_store
 
 
 class NarratorSessionError(Exception):
@@ -563,44 +562,34 @@ async def _narrate(
     if cleaned_comment:
         instructions.append("When regenerating, account for the user's regeneration comment.")
 
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="narrate_turn",
-            project_id=context.project.id,
-            provider_id=payload.provider_id or context.project.active_provider_id,
-            model_id=payload.model_id or context.project.active_model_id,
-            input={
-                "input_type": payload.input_type,
-                "content": user_turn.content,
-                "selected_option": selected_action.model_dump(mode="json") if selected_action else None,
-                "language": "ru",
-                "regeneration_comment": cleaned_comment,
-            },
-            context=AiActionContext(
-                synopsis=context.project.synopsis,
-                project=context.project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=context.chapter.model_dump(mode="json") if context.chapter else None,
-                session=context.session.model_dump(mode="json"),
-                turns=[turn.model_dump(mode="json") for turn in turns],
-                extra={
-                    "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
-                    "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
-                    "agent_settings": {
-                        "instructions": agent_instructions or None,
-                        "temperature": context.session.agent_temperature,
-                        "top_p": context.session.agent_top_p,
-                        "reasoning_effort": context.session.agent_reasoning_effort,
-                    },
-                    "instructions": instructions,
+    result = await project_ai_settings.execute_project_action(
+        project_id=context.project.id,
+        action_type="narrate_turn",
+        input={
+            "input_type": payload.input_type,
+            "content": user_turn.content,
+            "selected_option": selected_action.model_dump(mode="json") if selected_action else None,
+            "language": "ru",
+            "regeneration_comment": cleaned_comment,
+        },
+        context=AiActionContext(
+            synopsis=context.project.synopsis,
+            project=context.project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=context.chapter.model_dump(mode="json") if context.chapter else None,
+            session=context.session.model_dump(mode="json"),
+            turns=[turn.model_dump(mode="json") for turn in turns],
+            extra={
+                "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
+                "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
+                "agent_settings": {
+                    "instructions": agent_instructions or None,
                 },
-            ),
-            privacy_level="project",
-            temperature=_temperature_for(context, payload),
-            top_p=payload.top_p if payload.top_p is not None else context.session.agent_top_p,
-            reasoning_effort=payload.reasoning_effort or context.session.agent_reasoning_effort,
-        )
+                "instructions": instructions,
+            },
+        ),
+        privacy_level="project",
     )
     return NarrateTurnOutput.model_validate(result.structured_json)
 
@@ -638,45 +627,33 @@ async def _suggest_turn_actions(
     if cleaned_prompt:
         instructions.append("Account for the user's prompt when regenerating action options.")
 
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="suggest_turn_actions",
-            project_id=context.project.id,
-            provider_id=payload.provider_id or context.project.active_provider_id,
-            model_id=payload.model_id or context.project.active_model_id,
-            input={
-                "source_turn": source_turn.model_dump(mode="json"),
-                "prompt": cleaned_prompt,
-                "comment": _clean_optional_text(payload.comment),
-                "language": "ru",
-            },
-            context=AiActionContext(
-                synopsis=context.project.synopsis,
-                project=context.project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=context.chapter.model_dump(mode="json") if context.chapter else None,
-                session=context.session.model_dump(mode="json"),
-                turns=[turn.model_dump(mode="json") for turn in turns_context],
-                extra={
-                    "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
-                    "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
-                    "agent_settings": {
-                        "instructions": agent_instructions or None,
-                        "temperature": context.session.agent_temperature,
-                        "top_p": context.session.agent_top_p,
-                        "reasoning_effort": context.session.agent_reasoning_effort,
-                    },
-                    "instructions": instructions,
+    result = await project_ai_settings.execute_project_action(
+        project_id=context.project.id,
+        action_type="suggest_turn_actions",
+        input={
+            "source_turn": source_turn.model_dump(mode="json"),
+            "prompt": cleaned_prompt,
+            "comment": _clean_optional_text(payload.comment),
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=context.project.synopsis,
+            project=context.project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=context.chapter.model_dump(mode="json") if context.chapter else None,
+            session=context.session.model_dump(mode="json"),
+            turns=[turn.model_dump(mode="json") for turn in turns_context],
+            extra={
+                "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
+                "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
+                "agent_settings": {
+                    "instructions": agent_instructions or None,
                 },
-            ),
-            privacy_level="project",
-            temperature=payload.temperature
-            if payload.temperature is not None
-            else context.session.agent_temperature or 0.7,
-            top_p=payload.top_p if payload.top_p is not None else context.session.agent_top_p,
-            reasoning_effort=payload.reasoning_effort or context.session.agent_reasoning_effort,
-        )
+                "instructions": instructions,
+            },
+        ),
+        privacy_level="project",
     )
     return SuggestTurnActionsOutput.model_validate(result.structured_json)
 
@@ -705,14 +682,6 @@ def _persist_ai_turn_output(
     key_events = _persist_key_events(context, ai_turn.id, output)
     memory_proposals = _persist_memory_proposals(context.project.id, ai_turn.id, output)
     return ai_turn, suggested_actions, key_events, memory_proposals
-
-
-def _temperature_for(context: NarratorContext, payload: NarratorTurnRequest) -> float:
-    if payload.temperature is not None:
-        return payload.temperature
-    if context.session.agent_temperature is not None:
-        return context.session.agent_temperature
-    return 0.7
 
 
 def _input_type_from_turn(turn: SessionTurnRecord) -> NarratorInputType:

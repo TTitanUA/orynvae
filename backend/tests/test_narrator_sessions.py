@@ -216,7 +216,9 @@ def test_narrator_session_lifecycle_turn_log_and_completion(tmp_path, monkeypatc
     assert first_body["key_event_candidates"][0]["related_story_line_ids"] == [line.id]
     assert first_body["memory_proposal_candidates"][0]["source_id"] == first_body["ai_turn"]["id"]
     assert first_body["story_line_update_candidates"][0]["after_state"].startswith("Архив")
-    assert adapter.complete_calls[0]["temperature"] == 0.4
+    assert adapter.complete_calls[0]["temperature"] == 0.7
+    assert adapter.complete_calls[0]["top_p"] == 0.9
+    assert adapter.complete_calls[0]["reasoning_effort"] is None
     request_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert request_payload["action_type"] == "narrate_turn"
     assert request_payload["context"]["session"]["id"] == session.id
@@ -346,9 +348,9 @@ def test_agent_settings_regenerate_last_and_rollback_modes(tmp_path, monkeypatch
     )
     assert submitted.status_code == 200
     user_turn_id = submitted.json()["user_turn"]["id"]
-    assert adapter.complete_calls[0]["temperature"] == 0.25
-    assert adapter.complete_calls[0]["top_p"] == 0.8
-    assert adapter.complete_calls[0]["reasoning_effort"] == "high"
+    assert adapter.complete_calls[0]["temperature"] == 0.7
+    assert adapter.complete_calls[0]["top_p"] == 0.9
+    assert adapter.complete_calls[0]["reasoning_effort"] is None
     first_request = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert first_request["context"]["extra"]["agent_settings"]["instructions"].startswith("Пиши суше")
 

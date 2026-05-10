@@ -147,7 +147,7 @@ describe("ChapterPrepareRoute", () => {
 
     expect((await screen.findByText("Подготовка главы")).textContent).toBe("Подготовка главы");
     expect((await screen.findByText("Только чтение")).textContent).toBe("Только чтение");
-    expect((await screen.findByText("Модель ассистента")).textContent).toBe("Модель ассистента");
+    expect((await screen.findByText("Рамка сцены")).textContent).toBe("Рамка сцены");
     expect((await screen.findByText("Courier")).textContent).toBe("Courier");
     expect(screen.getByRole("button", { name: /Подготовить с AI/ })).toHaveProperty(
       "disabled",
@@ -155,7 +155,7 @@ describe("ChapterPrepareRoute", () => {
     );
   });
 
-  it("sends selected assistant model settings when preparing a chapter", async () => {
+  it("uses project-level AI settings when preparing a chapter", async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       void init;
       if (url.includes("/session/prepare")) {
@@ -349,17 +349,10 @@ describe("ChapterPrepareRoute", () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText("Модель ассистента");
-    fireEvent.change(await screen.findByRole("slider", { name: "Температура" }), {
-      target: { value: "0.4" },
-    });
-    fireEvent.change(screen.getByRole("slider", { name: "Top P" }), {
-      target: { value: "0.85" },
-    });
-    fireEvent.change(screen.getByRole("combobox", { name: "Reasoning" }), {
-      target: { value: "high" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Подготовить с AI/ }));
+    await screen.findByText("Start at the archive.");
+    const prepareButton = screen.getByRole("button", { name: /Подготовить с AI/ });
+    await waitFor(() => expect(prepareButton).toHaveProperty("disabled", false));
+    fireEvent.click(prepareButton);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -374,12 +367,18 @@ describe("ChapterPrepareRoute", () => {
       (await screen.findByRole("link", { name: "Открыть рассказчика" })).getAttribute("href"),
     ).toBe("/projects/project-1/sessions/session-1/narrator");
     const prepareCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/session/prepare"));
-    expect(JSON.parse(String(prepareCall?.[1]?.body))).toMatchObject({
-      provider_id: "provider-1",
-      model_id: "model-1",
-      temperature: 0.4,
-      top_p: 0.85,
-      reasoning_effort: "high",
+    expect(JSON.parse(String(prepareCall?.[1]?.body))).toEqual({
+      title: null,
+      focus: null,
+      user_role: "unknown",
+      controlled_character_ids: [],
+      primary_story_line_id: null,
+      secondary_story_line_ids: [],
+      ignored_story_line_ids: [],
+      tone: null,
+      pace: null,
+      expansion_policy_override: null,
+      start_point: null,
     });
   });
 });

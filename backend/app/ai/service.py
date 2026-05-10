@@ -85,7 +85,7 @@ async def execute_action(request: AiActionRequest) -> AiActionResult:
         raw_text = await adapter.complete_chat(
             model_id=resolved.model.model_id,
             messages=messages,
-            temperature=request.temperature,
+            temperature=_request_temperature(request),
             top_p=request.top_p,
             reasoning_effort=request.reasoning_effort,
             routing_config=resolved.model.routing_config,
@@ -158,7 +158,7 @@ async def stream_action_events(request: AiActionRequest) -> AsyncIterator[AiActi
             async for chunk in adapter.stream_chat(
                 model_id=resolved.model.model_id,
                 messages=build_action_messages(request, definition),
-                temperature=request.temperature,
+                temperature=_request_temperature(request),
                 top_p=request.top_p,
                 reasoning_effort=request.reasoning_effort,
                 routing_config=resolved.model.routing_config,
@@ -170,7 +170,7 @@ async def stream_action_events(request: AiActionRequest) -> AsyncIterator[AiActi
             text = await adapter.complete_chat(
                 model_id=resolved.model.model_id,
                 messages=build_action_messages(request, definition),
-                temperature=request.temperature,
+                temperature=_request_temperature(request),
                 top_p=request.top_p,
                 reasoning_effort=request.reasoning_effort,
                 routing_config=resolved.model.routing_config,
@@ -261,6 +261,10 @@ def resolve_action_provider(request: AiActionRequest) -> ResolvedActionProvider:
             status_code=HTTPStatus.NOT_FOUND,
         )
     return _resolve_model(stored, runtime.active_model.model_id)
+
+
+def _request_temperature(request: AiActionRequest) -> float:
+    return request.temperature if request.temperature is not None else 0.7
 
 
 def _resolve_model(

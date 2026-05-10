@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.providers.adapters import ProviderModel
-from app.services import provider_store
+from app.services import project_ai_settings, provider_store
 
 
 def _enable_ai(client: TestClient) -> tuple[str, str]:
@@ -44,6 +44,8 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
     assert project["synopsis"] == "Memory noir"
     assert project["active_provider_id"] == provider_id
     assert project["active_model_id"] == model_id
+    assert project["default_temperature"] == 0.7
+    assert project["default_top_p"] == 0.9
     assert project["is_hidden"] is False
     assert set(project) == {
         "id",
@@ -52,6 +54,8 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
         "status",
         "active_provider_id",
         "active_model_id",
+        "default_temperature",
+        "default_top_p",
         "expansion_policy",
         "is_hidden",
         "created_at",
@@ -80,6 +84,80 @@ def test_project_list_create_update_and_archive(tmp_path, monkeypatch):
     listed_after_archive = client.get("/api/projects")
     assert listed_after_archive.status_code == 200
     assert listed_after_archive.json() == []
+
+
+def test_project_ai_settings_api_resolves_agent_overrides(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORYNVAE_DATA_DIR", str(tmp_path / "data"))
+    client = TestClient(app)
+    provider_id, model_id = _enable_ai(client)
+    project = client.post(
+        "/api/projects",
+        json={
+            "title": "Agent settings",
+            "active_provider_id": provider_id,
+            "active_model_id": model_id,
+        },
+    ).json()
+
+    loaded = client.get(f"/api/projects/{project['id']}/ai-settings")
+
+    assert loaded.status_code == 200
+    body = loaded.json()
+    assert body["default_temperature"] == 0.7
+    assert body["default_top_p"] == 0.9
+    assert body["active_provider_id"] == provider_id
+    forecaster = next(agent for agent in body["agents"] if agent["agent_key"] == "forecaster")
+    assert forecaster["temperature_source"] == "agent_default"
+    assert forecaster["effective_temperature"] == 0.75
+
+    patched = client.patch(
+        f"/api/projects/{project['id']}/ai-settings",
+        json={
+            "default_temperature": 0.6,
+            "default_top_p": 0.8,
+            "agents": [
+                {
+                    "agent_key": "forecaster",
+                    "temperature_source": "custom",
+                    "temperature_value": 0.52,
+                    "top_p_source": "custom",
+                    "top_p_value": 0.42,
+                }
+            ],
+        },
+    )
+
+    assert patched.status_code == 200
+    updated = patched.json()
+    assert updated["default_temperature"] == 0.6
+    assert updated["default_top_p"] == 0.8
+    forecaster = next(agent for agent in updated["agents"] if agent["agent_key"] == "forecaster")
+    assert forecaster["effective_temperature"] == 0.52
+    assert forecaster["effective_top_p"] == 0.42
+
+    resolved = project_ai_settings.resolve_project_generation_settings(project["id"], "forecast_next")
+    assert resolved.provider_id == provider_id
+    assert resolved.model_id == model_id
+    assert resolved.temperature == 0.52
+    assert resolved.top_p == 0.42
+
+    provider_store.upsert_models(
+        provider_id,
+        [
+            ProviderModel(
+                model_id=model_id,
+                display_name="No Top P Model",
+                capabilities={"supported_parameters": ["temperature"]},
+            )
+        ],
+    )
+    resolved_without_top_p = project_ai_settings.resolve_project_generation_settings(
+        project["id"],
+        "forecast_next",
+    )
+
+    assert resolved_without_top_p.temperature == 0.52
+    assert resolved_without_top_p.top_p is None
 
 
 def test_hidden_projects_follow_privacy_visibility(tmp_path, monkeypatch):

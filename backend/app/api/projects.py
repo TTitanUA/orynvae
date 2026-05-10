@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.ai.service import AiActionException
 from app.models.projects import ProjectCreate, ProjectRecord, ProjectUpdate
+from app.models.project_ai_settings import ProjectAiSettingsPatch, ProjectAiSettingsResponse
 from app.models.stage7 import ForecastGenerateRequest, ForecastListResponse
 from app.models.story_runtime import ForecastRecord
 from app.models.start_story import (
@@ -11,7 +12,7 @@ from app.models.start_story import (
     StartStoryConfirmResponse,
     StartStoryRefineRequest,
 )
-from app.services import project_store, stage7, start_story
+from app.services import project_ai_settings, project_store, stage7, start_story
 from app.services.runtime_status import require_creative_write
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -64,6 +65,28 @@ def list_forecasts(project_id: str) -> ForecastListResponse:
     if forecasts is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return ForecastListResponse(forecasts=forecasts)
+
+
+@router.get("/{project_id}/ai-settings", response_model=ProjectAiSettingsResponse)
+def get_project_ai_settings(project_id: str) -> ProjectAiSettingsResponse:
+    settings = project_ai_settings.get_project_ai_settings(project_id)
+    if settings is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return settings
+
+
+@router.patch("/{project_id}/ai-settings", response_model=ProjectAiSettingsResponse)
+def update_project_ai_settings(
+    project_id: str,
+    payload: ProjectAiSettingsPatch,
+) -> ProjectAiSettingsResponse:
+    try:
+        settings = project_ai_settings.update_project_ai_settings(project_id, payload)
+    except project_ai_settings.ProjectAiSettingsError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    if settings is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return settings
 
 
 @router.post("/{project_id}/forecast", response_model=ForecastRecord)

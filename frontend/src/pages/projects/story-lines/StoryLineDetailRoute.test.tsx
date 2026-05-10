@@ -235,9 +235,8 @@ describe("StoryLineDetailRoute", () => {
     );
 
     expect(await screen.findByDisplayValue("Death memory source")).toBeTruthy();
-    fireEvent.change(await screen.findByLabelText("Reasoning"), { target: { value: "medium" } });
     fireEvent.change(
-      screen.getByPlaceholderText("Например: сделай конфликт яснее и обнови текущее состояние"),
+      await screen.findByPlaceholderText("Например: сделай конфликт яснее и обнови текущее состояние"),
       {
         target: { value: "Сделай загадку понятнее" },
       },
@@ -252,11 +251,6 @@ describe("StoryLineDetailRoute", () => {
     const body = JSON.parse(String(suggestCall?.[1]?.body));
     expect(body).toMatchObject({
       max_suggestions: 1,
-      provider_id: "provider-1",
-      model_id: "story-model",
-      temperature: 0.7,
-      top_p: 0.9,
-      reasoning_effort: "medium",
     });
     expect(body.instructions).toContain("Помоги отредактировать существующую линию истории.");
     expect(body.instructions).toContain("Название: Death memory source");
@@ -307,7 +301,6 @@ describe("StoryLineDetailRoute", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(await screen.findByLabelText("Reasoning"), { target: { value: "medium" } });
     fireEvent.change(await screen.findByPlaceholderText("Например: линия доверия между героем и старшим другом"), {
       target: { value: "Линия доверия" },
     });
@@ -320,11 +313,6 @@ describe("StoryLineDetailRoute", () => {
     expect(JSON.parse(String(suggestCall?.[1]?.body))).toEqual({
       instructions: "Линия доверия",
       max_suggestions: 1,
-      provider_id: "provider-1",
-      model_id: "story-model",
-      temperature: 0.7,
-      top_p: 0.9,
-      reasoning_effort: "medium",
     });
     fireEvent.click(screen.getByRole("button", { name: /Создать/ }));
 

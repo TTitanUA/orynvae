@@ -21,6 +21,8 @@ function project(overrides: Partial<Project>): Project {
     status: "active",
     active_provider_id: null,
     active_model_id: null,
+    default_temperature: 0.7,
+    default_top_p: 0.9,
     expansion_policy: "ask",
     is_hidden: false,
     created_at: "2026-05-02T00:00:00",

@@ -168,9 +168,9 @@ def test_story_lines_can_be_managed_suggested_and_read_with_progress(tmp_path, m
     assert suggested.json()["story_lines"][0]["title"] == "Archive starts watching"
     assert len(story_runtime_store.list_story_lines(project_id)) == 1
     assert adapter.complete_calls[0]["model_id"] == project["active_model_id"]
-    assert adapter.complete_calls[0]["temperature"] == 0.35
-    assert adapter.complete_calls[0]["top_p"] == 0.8
-    assert adapter.complete_calls[0]["reasoning_effort"] == "medium"
+    assert adapter.complete_calls[0]["temperature"] == 0.7
+    assert adapter.complete_calls[0]["top_p"] == 0.9
+    assert adapter.complete_calls[0]["reasoning_effort"] is None
     request_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert request_payload["action_type"] == "suggest_story_lines"
     assert request_payload["context"]["story_lines"][0]["title"] == "Who sent the death memory?"
@@ -258,9 +258,9 @@ def test_chapters_can_be_prepared_into_saved_session_frame(tmp_path, monkeypatch
     assert body["chapter"]["session_id"] == body["session"]["id"]
     assert story_runtime_store.list_session_turns(body["session"]["id"])[0].turn_type == "narration"
     assert adapter.complete_calls[0]["model_id"] == project["active_model_id"]
-    assert adapter.complete_calls[0]["temperature"] == 0.4
-    assert adapter.complete_calls[0]["top_p"] == 0.85
-    assert adapter.complete_calls[0]["reasoning_effort"] == "high"
+    assert adapter.complete_calls[0]["temperature"] == 0.7
+    assert adapter.complete_calls[0]["top_p"] == 0.9
+    assert adapter.complete_calls[0]["reasoning_effort"] is None
     request_payload = json.loads(adapter.complete_calls[0]["messages"][-1].content)
     assert request_payload["action_type"] == "prepare_chapter_session"
     assert request_payload["input"]["primary_story_line_id"] == line.id

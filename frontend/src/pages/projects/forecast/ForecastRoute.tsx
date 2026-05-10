@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 
 import { forecastMutations, forecastQueries, forecastQueryKeys, type Forecast } from "../../../entities/forecast";
 import { memoryQueries, memoryQueryKeys } from "../../../entities/memory";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import { storyLineQueries } from "../../../entities/story-line";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
@@ -102,44 +103,55 @@ export function ForecastRoute({ projectId, chapterId }: ForecastRouteProps) {
         {selectMutation.error instanceof Error && <NoticeBlock tone="error">{selectMutation.error.message}</NoticeBlock>}
 
         <div className="forecast-layout">
-          <aside className="forecast-panel forecast-controls">
-            <div className="forecast-panel__title">
-              <Compass size={18} aria-hidden="true" />
-              <h2>Параметры</h2>
-            </div>
-            <label>
-              Горизонт
-              <select
-                disabled={readOnly}
-                name="forecast-horizon"
-                onChange={(event) => setHorizon(Number(event.target.value))}
-                value={horizon}
-              >
-                <option value={1}>1 глава</option>
-                <option value={2}>2 главы</option>
-                <option value={3}>3 главы</option>
-              </select>
-            </label>
-            <div className="forecast-lines">
-              {storyLines.map((line) => (
-                <label key={line.id}>
-                  <input
-                    checked={selectedLineIds.includes(line.id)}
-                    disabled={readOnly}
-                    name="forecast-story-lines"
-                    onChange={() => toggleLine(line.id)}
-                    type="checkbox"
-                    value={line.id}
-                  />
-                  <span>{line.title}</span>
-                </label>
-              ))}
-            </div>
-            <button disabled={readOnly || generateMutation.isPending} onClick={generateForecast} type="button">
-              <Sparkles size={15} aria-hidden="true" />
-              {latestForecast ? "Сгенерировать новый прогноз" : "Сгенерировать прогноз"}
-            </button>
-            <Link to={`/projects/${projectId}/chapters/prepare`}>Подготовить следующую главу</Link>
+          <aside className="forecast-side">
+            <ProjectAgentSettingsCard
+              agentKey="forecaster"
+              className="forecast-panel"
+              description="Применяется к генерации прогноза следующего движения истории."
+              disabled={readOnly}
+              projectId={projectId}
+              title="Настройки прогноза"
+            />
+
+            <section className="forecast-panel forecast-controls">
+              <div className="forecast-panel__title">
+                <Compass size={18} aria-hidden="true" />
+                <h2>Параметры</h2>
+              </div>
+              <label>
+                Горизонт
+                <select
+                  disabled={readOnly}
+                  name="forecast-horizon"
+                  onChange={(event) => setHorizon(Number(event.target.value))}
+                  value={horizon}
+                >
+                  <option value={1}>1 глава</option>
+                  <option value={2}>2 главы</option>
+                  <option value={3}>3 главы</option>
+                </select>
+              </label>
+              <div className="forecast-lines">
+                {storyLines.map((line) => (
+                  <label key={line.id}>
+                    <input
+                      checked={selectedLineIds.includes(line.id)}
+                      disabled={readOnly}
+                      name="forecast-story-lines"
+                      onChange={() => toggleLine(line.id)}
+                      type="checkbox"
+                      value={line.id}
+                    />
+                    <span>{line.title}</span>
+                  </label>
+                ))}
+              </div>
+              <button disabled={readOnly || generateMutation.isPending} onClick={generateForecast} type="button">
+                <Sparkles size={15} aria-hidden="true" />
+                {latestForecast ? "Сгенерировать новый прогноз" : "Сгенерировать прогноз"}
+              </button>
+              <Link to={`/projects/${projectId}/chapters/prepare`}>Подготовить следующую главу</Link>
+            </section>
           </aside>
 
           <main className="forecast-main">

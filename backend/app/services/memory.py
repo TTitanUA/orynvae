@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from app.ai import service as ai_service
-from app.models.ai_actions import AiActionContext, AiActionRequest, CheckContradictionsOutput
+from app.models.ai_actions import AiActionContext, CheckContradictionsOutput
 from app.models.memory import (
     MemoryConflictCheckRequest,
     MemoryConflictCheckResponse,
@@ -23,7 +22,7 @@ from app.models.story_runtime import (
     MemoryItemUpdate,
     MemoryProposalRecord,
 )
-from app.services import project_store, runtime_status, story_runtime_store
+from app.services import project_ai_settings, project_store, runtime_status, story_runtime_store
 
 ALLOWED_PROPOSAL_FIELDS = {
     "type",
@@ -90,24 +89,20 @@ async def check_memory_conflicts(
         for item in story_runtime_store.list_memory_items(project.id)
         if item.status in {"canon", "draft"}
     ]
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="check_contradictions",
-            project_id=project.id,
-            provider_id=project.active_provider_id,
-            model_id=project.active_model_id,
-            input={
-                "content": payload.content,
-                "candidate_payload": payload.candidate_payload,
-                "target_item_id": payload.target_item_id,
-            },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-            ),
-            privacy_level="project",
-        )
+    result = await project_ai_settings.execute_project_action(
+        project_id=project.id,
+        action_type="check_contradictions",
+        input={
+            "content": payload.content,
+            "candidate_payload": payload.candidate_payload,
+            "target_item_id": payload.target_item_id,
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+        ),
+        privacy_level="project",
     )
     output = CheckContradictionsOutput.model_validate(result.structured_json)
     return MemoryConflictCheckResponse(

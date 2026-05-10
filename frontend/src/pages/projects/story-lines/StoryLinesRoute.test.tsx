@@ -104,7 +104,7 @@ describe("StoryLinesRoute", () => {
     expect(screen.queryByRole("button", { name: "История" })).toBeNull();
   });
 
-  it("sends the same agent settings shape as project creation for suggestions", async () => {
+  it("uses project-level AI settings for suggestions", async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       void init;
       if (url.includes("/workspace-summary")) {
@@ -223,8 +223,7 @@ describe("StoryLinesRoute", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(await screen.findByLabelText("Reasoning"), { target: { value: "medium" } });
-    fireEvent.change(screen.getByPlaceholderText("Например: дай одну угрозу и одну линию отношений"), {
+    fireEvent.change(await screen.findByPlaceholderText("Например: дай одну угрозу и одну линию отношений"), {
       target: { value: "Дай одну угрозу" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Спросить AI/ }));
@@ -241,11 +240,6 @@ describe("StoryLinesRoute", () => {
     expect(JSON.parse(String(suggestCall?.[1]?.body))).toEqual({
       instructions: "Дай одну угрозу",
       max_suggestions: 5,
-      provider_id: "provider-1",
-      model_id: "story-model",
-      temperature: 0.7,
-      top_p: 0.9,
-      reasoning_effort: "medium",
     });
   });
 

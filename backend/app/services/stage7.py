@@ -3,10 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from http import HTTPStatus
 
-from app.ai import service as ai_service
 from app.models.ai_actions import (
     AiActionContext,
-    AiActionRequest,
     AssembleDraftOutput,
     EditMarkdownFragmentOutput,
     ForecastNextOutput,
@@ -54,7 +52,7 @@ from app.models.story_runtime import (
     StoryLineUpdate,
 )
 from app.services import memory as memory_service
-from app.services import project_store, runtime_status, story_runtime_store
+from app.services import project_ai_settings, project_store, runtime_status, story_runtime_store
 
 
 class Stage7Error(Exception):
@@ -100,47 +98,40 @@ async def assemble_draft(
     memory_items = _memory_items(context.project.id)
     story_lines = _story_lines(context.project.id)
 
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="assemble_draft",
-            project_id=context.project.id,
-            provider_id=payload.provider_id or context.project.active_provider_id,
-            model_id=payload.model_id or context.project.active_model_id,
-            input={
-                "mode": payload.mode,
-                "required_event_ids": payload.required_event_ids,
-                "excluded_turn_ids": payload.excluded_turn_ids,
-                "style_notes": _clean_optional(payload.style_notes),
-                "language": "ru",
+    result = await project_ai_settings.execute_project_action(
+        project_id=context.project.id,
+        action_type="assemble_draft",
+        input={
+            "mode": payload.mode,
+            "required_event_ids": payload.required_event_ids,
+            "excluded_turn_ids": payload.excluded_turn_ids,
+            "style_notes": _clean_optional(payload.style_notes),
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=context.project.synopsis,
+            project=context.project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=context.chapter.model_dump(mode="json"),
+            session=context.session.model_dump(mode="json"),
+            turns=[turn.model_dump(mode="json") for turn in included_turns],
+            extra={
+                "all_turns_count": len(turns),
+                "included_key_events": [
+                    event.model_dump(mode="json") for event in included_key_events
+                ],
+                "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
+                "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
+                "instructions": [
+                    "Assemble literary markdown from the lived session log.",
+                    "Preserve key user decisions and consequences.",
+                    "Do not add new canon; leave facts as prose unless confirmed later.",
+                    "Return markdown only in the structured markdown field.",
+                ],
             },
-            context=AiActionContext(
-                synopsis=context.project.synopsis,
-                project=context.project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=context.chapter.model_dump(mode="json"),
-                session=context.session.model_dump(mode="json"),
-                turns=[turn.model_dump(mode="json") for turn in included_turns],
-                extra={
-                    "all_turns_count": len(turns),
-                    "included_key_events": [
-                        event.model_dump(mode="json") for event in included_key_events
-                    ],
-                    "active_story_lines": _lines_by_id(story_lines, context.session.active_story_line_ids),
-                    "controlled_characters": _items_by_id(memory_items, context.session.controlled_character_ids),
-                    "instructions": [
-                        "Assemble literary markdown from the lived session log.",
-                        "Preserve key user decisions and consequences.",
-                        "Do not add new canon; leave facts as prose unless confirmed later.",
-                        "Return markdown only in the structured markdown field.",
-                    ],
-                },
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+        ),
+        privacy_level="project",
     )
     output = AssembleDraftOutput.model_validate(result.structured_json)
     draft = story_runtime_store.create_draft_version(
@@ -223,33 +214,26 @@ async def assist_draft(
         else None
     )
     turns = story_runtime_store.list_session_turns(session.id) if session else []
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="edit_markdown_fragment",
-            project_id=project_id,
-            provider_id=payload.provider_id or project.active_provider_id,
-            model_id=payload.model_id or project.active_model_id,
-            input={
-                "instructions": payload.instructions,
-                "language": "ru",
-            },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in _memory_items(project_id)],
-                story_lines=[line.model_dump(mode="json") for line in _story_lines(project_id)],
-                chapter=chapter.model_dump(mode="json"),
-                session=session.model_dump(mode="json") if session else None,
-                turns=[turn.model_dump(mode="json") for turn in turns],
-                draft_markdown=draft_markdown,
-                selection_markdown=payload.selection_markdown,
-                instructions=payload.instructions,
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+    result = await project_ai_settings.execute_project_action(
+        project_id=project_id,
+        action_type="edit_markdown_fragment",
+        input={
+            "instructions": payload.instructions,
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in _memory_items(project_id)],
+            story_lines=[line.model_dump(mode="json") for line in _story_lines(project_id)],
+            chapter=chapter.model_dump(mode="json"),
+            session=session.model_dump(mode="json") if session else None,
+            turns=[turn.model_dump(mode="json") for turn in turns],
+            draft_markdown=draft_markdown,
+            selection_markdown=payload.selection_markdown,
+            instructions=payload.instructions,
+        ),
+        privacy_level="project",
     )
     output = EditMarkdownFragmentOutput.model_validate(result.structured_json)
     return DraftAssistResponse(
@@ -295,39 +279,32 @@ async def generate_review(
     key_events = story_runtime_store.list_key_events(session.id) if session else []
     memory_items = _memory_items(project_id)
     story_lines = _story_lines(project_id)
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="review_chapter",
-            project_id=project_id,
-            provider_id=payload.provider_id or project.active_provider_id,
-            model_id=payload.model_id or project.active_model_id,
-            input={
-                "source_draft_version_id": draft.id if draft else None,
-                "language": "ru",
+    result = await project_ai_settings.execute_project_action(
+        project_id=project_id,
+        action_type="review_chapter",
+        input={
+            "source_draft_version_id": draft.id if draft else None,
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=chapter.model_dump(mode="json"),
+            session=session.model_dump(mode="json") if session else None,
+            turns=[turn.model_dump(mode="json") for turn in turns],
+            draft_markdown=draft_markdown,
+            extra={
+                "key_events": [event.model_dump(mode="json") for event in key_events],
+                "instructions": [
+                    "Review what changed in the story after this chapter.",
+                    "Propose memory and story line updates as pending decisions only.",
+                    "Surface contradictions and open questions as warnings, not automatic fixes.",
+                ],
             },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=chapter.model_dump(mode="json"),
-                session=session.model_dump(mode="json") if session else None,
-                turns=[turn.model_dump(mode="json") for turn in turns],
-                draft_markdown=draft_markdown,
-                extra={
-                    "key_events": [event.model_dump(mode="json") for event in key_events],
-                    "instructions": [
-                        "Review what changed in the story after this chapter.",
-                        "Propose memory and story line updates as pending decisions only.",
-                        "Surface contradictions and open questions as warnings, not automatic fixes.",
-                    ],
-                },
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+        ),
+        privacy_level="project",
     )
     output = ReviewChapterOutput.model_validate(result.structured_json)
     review = story_runtime_store.create_chapter_review(
@@ -417,42 +394,35 @@ async def generate_forecast(
     draft_markdown = latest_draft.markdown if latest_draft else chapter.draft_markdown
     if not draft_markdown.strip():
         raise Stage7Error("Chapter has no draft markdown to forecast", status_code=HTTPStatus.CONFLICT)
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="forecast_next",
-            project_id=project_id,
-            provider_id=payload.provider_id or project.active_provider_id,
-            model_id=payload.model_id or project.active_model_id,
-            input={
-                "source_chapter_id": chapter.id,
-                "horizon_chapters": payload.horizon_chapters,
-                "active_story_line_ids": selected_line_ids,
-                "language": "ru",
+    result = await project_ai_settings.execute_project_action(
+        project_id=project_id,
+        action_type="forecast_next",
+        input={
+            "source_chapter_id": chapter.id,
+            "horizon_chapters": payload.horizon_chapters,
+            "active_story_line_ids": selected_line_ids,
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in _memory_items(project_id)],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=chapter.model_dump(mode="json"),
+            draft_markdown=draft_markdown,
+            extra={
+                "selected_story_lines": [
+                    line.model_dump(mode="json") for line in selected_lines
+                ],
+                "story_line_progress": _progress_for_lines(project_id, selected_lines),
+                "instructions": [
+                    "Forecast 2-4 possible directions for the next 1-3 chapters.",
+                    "Do not lock the ending or write a fixed plot.",
+                    "Frame options around soft story lines and likely consequences.",
+                ],
             },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in _memory_items(project_id)],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=chapter.model_dump(mode="json"),
-                draft_markdown=draft_markdown,
-                extra={
-                    "selected_story_lines": [
-                        line.model_dump(mode="json") for line in selected_lines
-                    ],
-                    "story_line_progress": _progress_for_lines(project_id, selected_lines),
-                    "instructions": [
-                        "Forecast 2-4 possible directions for the next 1-3 chapters.",
-                        "Do not lock the ending or write a fixed plot.",
-                        "Frame options around soft story lines and likely consequences.",
-                    ],
-                },
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+        ),
+        privacy_level="project",
     )
     output = ForecastNextOutput.model_validate(result.structured_json)
     if not 2 <= len(output.options) <= 4:

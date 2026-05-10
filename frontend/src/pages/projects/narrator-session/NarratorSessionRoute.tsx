@@ -8,7 +8,6 @@ import {
   ListChecks,
   Pause,
   Play,
-  PlugZap,
   RotateCcw,
   ScrollText,
   Send,
@@ -39,7 +38,6 @@ import {
   sessionStatusLabel,
   type KeyEvent,
   type NarratorInputType,
-  type NarratorReasoningEffort,
   type NarratorSessionDetail,
   type NarratorKeyEventUpdatePayload,
   type NarratorSuggestedActionsResponse,
@@ -49,15 +47,7 @@ import {
   updateNarratorKeyEvent,
   updateNarratorTurnFlags,
 } from "../../../entities/narrator-session";
-import {
-  allowedModels,
-  modelSupportsParameter,
-  modelSupportsReasoning,
-  providerQueries,
-  selectableAiProviders,
-  type Provider,
-  type ProviderModel,
-} from "../../../entities/provider";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
 import "./NarratorSessionRoute.css";
@@ -82,63 +72,16 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
   const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
   const [replayComment, setReplayComment] = useState("");
   const [actionPrompt, setActionPrompt] = useState("");
-  const [selectedProviderIdDraft, setSelectedProviderId] = useState("");
-  const [selectedModelIdDraft, setSelectedModelId] = useState("");
   const [agentInstructions, setAgentInstructions] = useState("");
-  const [agentTemperature, setAgentTemperature] = useState(0.7);
-  const [agentTopP, setAgentTopP] = useState(0.9);
-  const [agentReasoningEffort, setAgentReasoningEffort] = useState<NarratorReasoningEffort | "">("");
 
   const activeTab: TabId = searchParams.get("tab") === "log" ? "log" : "scene";
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
   const detailQuery = useQuery(narratorSessionQueries.detail(sessionId));
-  const providersQuery = useQuery(providerQueries.list());
 
   const detail = detailQuery.data;
   const summary = summaryQuery.data;
   const readOnly = Boolean(summary?.runtime.read_only);
   const session = detail?.session;
-  const providers = useMemo(
-    () => (Array.isArray(providersQuery.data) ? providersQuery.data : []),
-    [providersQuery.data],
-  );
-  const selectableProviders = useMemo(() => selectableAiProviders(providers), [providers]);
-  const projectProviderId = detail?.project.active_provider_id || summary?.project.active_provider_id || summary?.runtime.active_provider?.id;
-  const projectProvider = selectableProviders.find((provider) => provider.id === projectProviderId);
-  const defaultProvider = selectableProviders.find((provider) => provider.is_default);
-  const selectedProviderId =
-    selectedProviderIdDraft || (projectProvider || defaultProvider || selectableProviders[0])?.id || "";
-  const selectedProvider = useMemo(
-    () => providers.find((provider) => provider.id === selectedProviderId),
-    [providers, selectedProviderId],
-  );
-  const models = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
-  const projectModelId =
-    selectedProvider?.id === projectProviderId
-      ? detail?.project.active_model_id || summary?.project.active_model_id || summary?.runtime.active_model?.model_id
-      : undefined;
-  const projectModel = models.find((model) => model.model_id === projectModelId);
-  const defaultModel = models.find((model) => model.model_id === selectedProvider?.default_model_id);
-  const fallbackModelId = (projectModel || defaultModel || models[0])?.model_id || "";
-  const selectedModelId = models.some((model) => model.model_id === selectedModelIdDraft)
-    ? selectedModelIdDraft
-    : fallbackModelId;
-  const selectedModel = models.find((model) => model.model_id === selectedModelId);
-  const selectedProviderAvailable = selectableProviders.some((provider) => provider.id === selectedProviderId);
-  const supportsTemperature = modelSupportsParameter(selectedModel, "temperature");
-  const supportsTopP = modelSupportsParameter(selectedModel, "top_p");
-  const supportsModelReasoning = modelSupportsReasoning(selectedModel);
-  const selectedModelReady = Boolean(selectedProviderAvailable && selectedProvider && selectedModel);
-  const modelBlockedReason =
-    providersQuery.isPending
-      ? "Загрузка моделей"
-      : !selectedProvider
-        ? summary?.runtime.reason || "Выбери AI-провайдер"
-        : !selectedModel
-          ? "Выбери разрешенную модель"
-          : selectedProvider.last_error || undefined;
-  const activeProviderLabel =
-    selectedProvider && selectedModel ? `${selectedProvider.name} · ${selectedModel.display_name}` : "AI не выбран";
   const turns = useMemo(() => detail?.turns || [], [detail?.turns]);
   const latestAiTurn = useMemo(
     () => [...turns].reverse().find((turn) => turn.actor_type === "ai") || null,
@@ -185,7 +128,7 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
     !readOnly && session?.status === "active" && latestAiTurn?.turn_type === "narration",
   );
   const busy = detailQuery.isPending || summaryQuery.isPending;
-  const errors = [detailQuery.error, summaryQuery.error, providersQuery.error]
+  const errors = [detailQuery.error, summaryQuery.error]
     .filter((error): error is Error => error instanceof Error)
     .map((error) => error.message);
 
@@ -194,16 +137,10 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
       return;
     }
     setAgentInstructions(session.agent_instructions || "");
-    setAgentTemperature(session.agent_temperature ?? 0.7);
-    setAgentTopP(session.agent_top_p ?? 0.9);
-    setAgentReasoningEffort(session.agent_reasoning_effort || "");
   }, [
     session?.id,
     session?.updated_at,
     session?.agent_instructions,
-    session?.agent_temperature,
-    session?.agent_top_p,
-    session?.agent_reasoning_effort,
   ]);
 
   function invalidateWorkspace() {
@@ -366,14 +303,6 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
     selectedAction,
     variables: submitTurnMutation.variables,
   });
-  const generationSettings = {
-    provider_id: selectedProviderId || null,
-    model_id: selectedModelId || null,
-    temperature: supportsTemperature ? agentTemperature : undefined,
-    top_p: supportsTopP ? agentTopP : null,
-    reasoning_effort: supportsModelReasoning && agentReasoningEffort ? agentReasoningEffort : null,
-  };
-
   function submitTurn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit || submitTurnMutation.isPending) {
@@ -383,7 +312,6 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
       input_type: selectedActionId ? "choice" : inputType,
       content: content.trim() || null,
       selected_option_id: selectedActionId,
-      ...generationSettings,
     });
   }
 
@@ -401,7 +329,6 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
     regenerateActionsMutation.mutate({
       source_turn_id: latestAiTurn.id,
       prompt: actionPrompt.trim() || null,
-      ...generationSettings,
     });
   }
 
@@ -562,41 +489,24 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
                 </div>
               </section>
 
+              <ProjectAgentSettingsCard
+                agentKey="narrator"
+                className="narrator-panel"
+                description="Применяется к продолжению сцены, перегенерации narration и откатам."
+                disabled={readOnly}
+                projectId={projectId}
+                title="Настройки рассказчика"
+              />
+
               <AgentSettingsPanel
-                activeProviderLabel={activeProviderLabel}
                 agentInstructions={agentInstructions}
-                agentReasoningEffort={agentReasoningEffort}
-                agentTemperature={agentTemperature}
-                agentTopP={agentTopP}
-                modelBlockedReason={modelBlockedReason}
-                models={models}
-                onModelChange={setSelectedModelId}
-                onProviderChange={(providerId) => {
-                  setSelectedProviderId(providerId);
-                  setSelectedModelId("");
-                }}
-                onReasoningEffortChange={setAgentReasoningEffort}
                 onInstructionsChange={setAgentInstructions}
                 onSave={() =>
                   agentSettingsMutation.mutate({
                     agent_instructions: agentInstructions.trim() || null,
-                    agent_temperature: supportsTemperature ? agentTemperature : null,
-                    agent_top_p: supportsTopP ? agentTopP : null,
-                    agent_reasoning_effort:
-                      supportsModelReasoning && agentReasoningEffort ? agentReasoningEffort : null,
                   })
                 }
-                onTemperatureChange={setAgentTemperature}
-                onTopPChange={setAgentTopP}
-                providers={selectableProviders}
                 readOnly={readOnly}
-                selectedModelId={selectedModelId}
-                selectedModelReady={selectedModelReady}
-                selectedProvider={selectedProvider}
-                selectedProviderId={selectedProviderId}
-                supportsModelReasoning={supportsModelReasoning}
-                supportsTemperature={supportsTemperature}
-                supportsTopP={supportsTopP}
                 updating={agentSettingsMutation.isPending}
               />
 
@@ -622,6 +532,15 @@ export function NarratorSessionRoute({ projectId, sessionId }: NarratorSessionRo
                   Перегенерировать последний narration
                 </button>
               </section>
+
+              <ProjectAgentSettingsCard
+                agentKey="narrator_action_variants"
+                className="narrator-panel"
+                description="Применяется к перегенерации вариантов действий после ответа рассказчика."
+                disabled={readOnly}
+                projectId={projectId}
+                title="Настройки вариантов"
+              />
 
               <section className="narrator-panel">
                 <div className="narrator-panel-title">
@@ -839,54 +758,16 @@ function pendingUserTurnView({
 }
 
 function AgentSettingsPanel({
-  activeProviderLabel,
   agentInstructions,
-  agentReasoningEffort,
-  agentTemperature,
-  agentTopP,
-  modelBlockedReason,
-  models,
   onInstructionsChange,
-  onModelChange,
-  onProviderChange,
-  onReasoningEffortChange,
   onSave,
-  onTemperatureChange,
-  onTopPChange,
-  providers,
   readOnly,
-  selectedModelId,
-  selectedModelReady,
-  selectedProvider,
-  selectedProviderId,
-  supportsModelReasoning,
-  supportsTemperature,
-  supportsTopP,
   updating,
 }: {
-  activeProviderLabel: string;
   agentInstructions: string;
-  agentReasoningEffort: NarratorReasoningEffort | "";
-  agentTemperature: number;
-  agentTopP: number;
-  modelBlockedReason: string | undefined;
-  models: ProviderModel[];
   onInstructionsChange: (value: string) => void;
-  onModelChange: (value: string) => void;
-  onProviderChange: (value: string) => void;
-  onReasoningEffortChange: (value: NarratorReasoningEffort | "") => void;
   onSave: () => void;
-  onTemperatureChange: (value: number) => void;
-  onTopPChange: (value: number) => void;
-  providers: Provider[];
   readOnly: boolean;
-  selectedModelId: string;
-  selectedModelReady: boolean;
-  selectedProvider: Provider | undefined;
-  selectedProviderId: string;
-  supportsModelReasoning: boolean;
-  supportsTemperature: boolean;
-  supportsTopP: boolean;
   updating: boolean;
 }) {
   function saveAgentSettings(event: FormEvent<HTMLFormElement>) {
@@ -899,125 +780,12 @@ function AgentSettingsPanel({
       <div className="narrator-agent-header">
         <div className="narrator-panel-title">
           <Bot size={18} aria-hidden="true" />
-          <h2>Модель ассистента</h2>
-        </div>
-        <div className="narrator-agent-status">
-          <span>{activeProviderLabel}</span>
-          {!selectedModelReady && (
-            <Link
-              aria-label="Настроить AI"
-              className="narrator-agent-settings-link"
-              title="Настроить AI"
-              to="/settings/providers"
-            >
-              <PlugZap size={16} aria-hidden="true" />
-            </Link>
-          )}
+          <h2>Инструкции рассказчика</h2>
         </div>
       </div>
       <p className="narrator-agent-help">
-        Это “голос и мозг” рассказчика для следующих ходов. Настройки влияют на новые ответы и не
-        меняют уже сохраненный текст.
+        Эти инструкции действуют только в этой сессии и дополняют проектные настройки ассистента.
       </p>
-      {!readOnly && !selectedModelReady && modelBlockedReason && (
-        <NoticeBlock tone="error">{modelBlockedReason}</NoticeBlock>
-      )}
-      <div className="narrator-agent-select-grid">
-        <label className="narrator-agent-field">
-          <span>Провайдер</span>
-          <small>Где запускается модель: локально на твоем компьютере или во внешнем сервисе.</small>
-          <select
-            disabled={readOnly || updating}
-            name="narrator-agent-provider"
-            onChange={(event) => onProviderChange(event.target.value)}
-            value={selectedProviderId}
-          >
-            {providers.length === 0 && <option value="">Нет доступных</option>}
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="narrator-agent-field">
-          <span>Модель</span>
-          <small>Конкретная модель, которая будет продолжать сцену и предлагать действия.</small>
-          <select
-            disabled={readOnly || updating || !selectedProvider}
-            name="narrator-agent-model"
-            onChange={(event) => onModelChange(event.target.value)}
-            value={selectedModelId}
-          >
-            {models.length === 0 && <option value="">Нет разрешенных</option>}
-            {models.map((model) => (
-              <option key={model.id} value={model.model_id}>
-                {model.display_name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="narrator-agent-parameter-grid">
-        {supportsTemperature && (
-          <label className="narrator-agent-range">
-            <span>Температура</span>
-            <small>Ниже - спокойнее и предсказуемее. Выше - смелее, образнее и рискованнее.</small>
-            <input
-              aria-label="Температура"
-              disabled={readOnly || updating}
-              max="2"
-              min="0"
-              name="narrator-agent-temperature"
-              onChange={(event) => onTemperatureChange(Number(event.target.value))}
-              step="0.05"
-              type="range"
-              value={agentTemperature}
-            />
-            <output>{agentTemperature.toFixed(2)}</output>
-          </label>
-        )}
-        {supportsTopP && (
-          <label className="narrator-agent-range">
-            <span>Top P</span>
-            <small>Сужает или расширяет выбор слов и идей. Если не уверен, оставь около 0.90.</small>
-            <input
-              aria-label="Top P"
-              disabled={readOnly || updating}
-              max="1"
-              min="0"
-              name="narrator-agent-top-p"
-              onChange={(event) => onTopPChange(Number(event.target.value))}
-              step="0.05"
-              type="range"
-              value={agentTopP}
-            />
-            <output>{agentTopP.toFixed(2)}</output>
-          </label>
-        )}
-        {supportsModelReasoning && (
-          <label className="narrator-agent-field">
-            <span>Reasoning</span>
-            <small>Auto оставляет выбор модели. High полезен для сложных сцен с несколькими линиями.</small>
-            <select
-              aria-label="Reasoning"
-              disabled={readOnly || updating}
-              name="narrator-agent-reasoning-effort"
-              onChange={(event) =>
-                onReasoningEffortChange(event.target.value as NarratorReasoningEffort | "")
-              }
-              value={agentReasoningEffort}
-            >
-              <option value="">Auto</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        )}
-      </div>
-
       <label className="narrator-agent-field">
         <span>Инструкции</span>
         <small>Стиль, ограничения и поведение рассказчика для этой сессии.</small>

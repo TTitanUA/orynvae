@@ -49,6 +49,12 @@
   padding: 16px;
 }
 
+.forecast-side {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+}
+
 .forecast-panel__title {
   align-items: center;
   display: flex;

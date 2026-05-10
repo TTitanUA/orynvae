@@ -346,6 +346,8 @@ export function ProjectCreateRoute() {
         understood_synopsis: understoodSynopsis || analysis.understood_synopsis,
         provider_id: analysis.provider_id,
         model_id: analysis.model_id,
+        default_temperature: temperature,
+        default_top_p: topP,
         expansion_policy: expansionPolicy,
         memory_items: memoryItems,
         story_lines: storyLines,

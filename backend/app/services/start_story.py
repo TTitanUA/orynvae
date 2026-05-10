@@ -231,6 +231,8 @@ def confirm_start_story(payload: StartStoryConfirmRequest) -> StartStoryConfirmR
             synopsis=cleaned.understood_synopsis or cleaned.source_synopsis,
             active_provider_id=resolved.provider.id,
             active_model_id=resolved.model.model_id,
+            default_temperature=cleaned.default_temperature,
+            default_top_p=cleaned.default_top_p,
             expansion_policy=cleaned.expansion_policy,
         )
     )

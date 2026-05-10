@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from app.ai import service as ai_service
-from app.models.ai_actions import AiActionContext, AiActionRequest, PrepareChapterSessionOutput
+from app.models.ai_actions import AiActionContext, PrepareChapterSessionOutput
 from app.models.chapters import (
     ChapterCreateRequest,
     ChapterPrepareRequest,
@@ -16,7 +15,7 @@ from app.models.story_runtime import (
     ChapterUpdate,
     SessionTurnCreate,
 )
-from app.services import project_store, story_runtime_store
+from app.services import project_ai_settings, project_store, story_runtime_store
 
 
 class ChapterPreparationError(Exception):
@@ -87,50 +86,43 @@ async def prepare_chapter_session(
     ]
     selected_story_lines = [line for line in story_lines if line.id in active_story_line_ids]
 
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="prepare_chapter_session",
-            project_id=project.id,
-            provider_id=_clean_optional(payload.provider_id) or project.active_provider_id,
-            model_id=_clean_optional(payload.model_id) or project.active_model_id,
-            input={
-                "focus": payload.focus,
-                "user_role": payload.user_role,
-                "controlled_character_ids": payload.controlled_character_ids,
-                "primary_story_line_id": payload.primary_story_line_id,
-                "secondary_story_line_ids": payload.secondary_story_line_ids,
-                "ignored_story_line_ids": payload.ignored_story_line_ids,
-                "tone": payload.tone,
-                "pace": payload.pace,
-                "expansion_policy_override": payload.expansion_policy_override,
-                "start_point": payload.start_point,
-                "language": "ru",
+    result = await project_ai_settings.execute_project_action(
+        project_id=project.id,
+        action_type="prepare_chapter_session",
+        input={
+            "focus": payload.focus,
+            "user_role": payload.user_role,
+            "controlled_character_ids": payload.controlled_character_ids,
+            "primary_story_line_id": payload.primary_story_line_id,
+            "secondary_story_line_ids": payload.secondary_story_line_ids,
+            "ignored_story_line_ids": payload.ignored_story_line_ids,
+            "tone": payload.tone,
+            "pace": payload.pace,
+            "expansion_policy_override": payload.expansion_policy_override,
+            "start_point": payload.start_point,
+            "language": "ru",
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            chapter=chapter.model_dump(mode="json"),
+            extra={
+                "selected_story_lines": [
+                    line.model_dump(mode="json") for line in selected_story_lines
+                ],
+                "controlled_characters": [
+                    item.model_dump(mode="json") for item in controlled_characters
+                ],
+                "instructions": [
+                    "Prepare a flexible narrator session frame, not a fixed plot.",
+                    "Do not resolve mysteries or decide the chapter ending.",
+                    "Return concise opening material and meaningful first actions.",
+                ],
             },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                chapter=chapter.model_dump(mode="json"),
-                extra={
-                    "selected_story_lines": [
-                        line.model_dump(mode="json") for line in selected_story_lines
-                    ],
-                    "controlled_characters": [
-                        item.model_dump(mode="json") for item in controlled_characters
-                    ],
-                    "instructions": [
-                        "Prepare a flexible narrator session frame, not a fixed plot.",
-                        "Do not resolve mysteries or decide the chapter ending.",
-                        "Return concise opening material and meaningful first actions.",
-                    ],
-                },
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+        ),
+        privacy_level="project",
     )
     output = PrepareChapterSessionOutput.model_validate(result.structured_json)
     session = story_runtime_store.create_chapter_session(

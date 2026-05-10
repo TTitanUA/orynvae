@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from app.ai import service as ai_service
-from app.models.ai_actions import AiActionContext, AiActionRequest, SuggestStoryLinesOutput
+from app.models.ai_actions import AiActionContext, SuggestStoryLinesOutput
 from app.models.projects import ProjectRecord
 from app.models.story_lines import (
     StoryLineSuggestRequest,
     StoryLineSuggestResponse,
     StoryLineSuggestion,
 )
-from app.services import story_runtime_store
+from app.services import project_ai_settings, story_runtime_store
 
 
 async def suggest_story_lines(
@@ -25,30 +24,23 @@ async def suggest_story_lines(
         for line in story_runtime_store.list_story_lines(project.id)
         if line.status != "rejected"
     ]
-    result = await ai_service.execute_action(
-        AiActionRequest(
-            action_type="suggest_story_lines",
-            project_id=project.id,
-            provider_id=payload.provider_id or project.active_provider_id,
-            model_id=payload.model_id or project.active_model_id,
-            input={
-                "instructions": payload.instructions,
-                "max_suggestions": payload.max_suggestions,
-                "language": "ru",
-                "mode": "suggest_additional_story_lines",
-            },
-            context=AiActionContext(
-                synopsis=project.synopsis,
-                project=project.model_dump(mode="json"),
-                memory_items=[item.model_dump(mode="json") for item in memory_items],
-                story_lines=[line.model_dump(mode="json") for line in story_lines],
-                instructions=payload.instructions,
-            ),
-            privacy_level="project",
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-            reasoning_effort=payload.reasoning_effort,
-        )
+    result = await project_ai_settings.execute_project_action(
+        project_id=project.id,
+        action_type="suggest_story_lines",
+        input={
+            "instructions": payload.instructions,
+            "max_suggestions": payload.max_suggestions,
+            "language": "ru",
+            "mode": "suggest_additional_story_lines",
+        },
+        context=AiActionContext(
+            synopsis=project.synopsis,
+            project=project.model_dump(mode="json"),
+            memory_items=[item.model_dump(mode="json") for item in memory_items],
+            story_lines=[line.model_dump(mode="json") for line in story_lines],
+            instructions=payload.instructions,
+        ),
+        privacy_level="project",
     )
     output = SuggestStoryLinesOutput.model_validate(result.structured_json)
     return StoryLineSuggestResponse(

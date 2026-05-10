@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, ChevronLeft, LoaderCircle, PlugZap, Save, Sparkles } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { ChevronLeft, LoaderCircle, Save, Sparkles } from "lucide-react";
+import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { memoryQueries, memoryQueryKeys } from "../../../entities/memory";
-import { allowedModels, providerQueries, type Provider, type ProviderModel } from "../../../entities/provider";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import {
   createStoryLine,
   storyLineQueries,
@@ -15,7 +15,6 @@ import {
   suggestStoryLines,
   updateStoryLine,
   type StoryLine,
-  type StoryLineReasoningEffort,
   type StoryLineStatus,
   type StoryLineSuggestion,
   type StoryLineType,
@@ -38,11 +37,6 @@ type StoryLineDraft = {
   priority: number;
 };
 
-type Option<T extends string> = {
-  value: T;
-  label: string;
-};
-
 const emptyDraft: StoryLineDraft = {
   type: "custom",
   title: "",
@@ -51,46 +45,6 @@ const emptyDraft: StoryLineDraft = {
   status: "proposed",
   priority: 0,
 };
-
-const reasoningEffortOptions: Option<StoryLineReasoningEffort>[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-];
-
-function supportedParameters(model: ProviderModel | undefined): string[] {
-  const capabilities = model?.capabilities;
-  const value =
-    capabilities && typeof capabilities === "object"
-      ? capabilities.supported_parameters
-      : undefined;
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
-    .map((item) => item.toLowerCase());
-}
-
-function supportsParameter(model: ProviderModel | undefined, parameter: string): boolean {
-  const parameters = supportedParameters(model);
-  return parameters.length === 0 || parameters.includes(parameter);
-}
-
-function supportsReasoning(model: ProviderModel | undefined): boolean {
-  const parameters = supportedParameters(model);
-  return (
-    parameters.includes("reasoning") ||
-    parameters.includes("reasoning_effort") ||
-    parameters.includes("reasoning.effort")
-  );
-}
-
-function selectableStoryProviders(providers: Provider[]): Provider[] {
-  return providers.filter(
-    (provider) => provider.is_enabled && !provider.last_error && allowedModels(provider).length > 0,
-  );
-}
 
 function lineToDraft(line: StoryLine): StoryLineDraft {
   return {
@@ -162,73 +116,21 @@ export function StoryLineDetailRoute({ projectId, lineId }: StoryLineDetailRoute
   const [draftOverrides, setDraftOverrides] = useState<Partial<StoryLineDraft>>({});
   const [assistantInstructions, setAssistantInstructions] = useState("");
   const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
-  const [selectedProviderIdDraft, setSelectedProviderId] = useState("");
-  const [selectedModelIdDraft, setSelectedModelId] = useState("");
-  const [temperature, setTemperature] = useState(0.7);
-  const [topP, setTopP] = useState(0.9);
-  const [reasoningEffort, setReasoningEffort] = useState<StoryLineReasoningEffort | "">("");
 
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
-  const providersQuery = useQuery(providerQueries.list());
   const lineQuery = useQuery(storyLineQueries.detail(projectId, lineId || null));
   const progressQuery = useQuery(storyLineQueries.progress(projectId, lineId || null));
 
   const summary = summaryQuery.data;
   const line = lineQuery.data;
   const readOnly = Boolean(summary?.runtime.read_only);
-  const providers = useMemo(
-    () => (Array.isArray(providersQuery.data) ? providersQuery.data : []),
-    [providersQuery.data],
-  );
-  const selectableProviders = useMemo(() => selectableStoryProviders(providers), [providers]);
-  const projectProvider = selectableProviders.find(
-    (provider) => provider.id === summary?.project.active_provider_id,
-  );
-  const defaultProvider = selectableProviders.find((provider) => provider.is_default);
-  const selectedProviderId =
-    selectedProviderIdDraft || (projectProvider || defaultProvider || selectableProviders[0])?.id || "";
-  const selectedProvider = useMemo(
-    () => providers.find((provider) => provider.id === selectedProviderId),
-    [providers, selectedProviderId],
-  );
-  const models = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
-  const projectModel =
-    summary?.project.active_provider_id === selectedProvider?.id
-      ? models.find((model) => model.model_id === summary?.project.active_model_id)
-      : undefined;
-  const defaultModel = models.find((model) => model.model_id === selectedProvider?.default_model_id);
-  const fallbackModelId = (projectModel || defaultModel || models[0])?.model_id || "";
-  const selectedModelId = models.some((model) => model.model_id === selectedModelIdDraft)
-    ? selectedModelIdDraft
-    : fallbackModelId;
-  const selectedModel = models.find((model) => model.model_id === selectedModelId);
-  const selectedProviderAvailable = selectableProviders.some(
-    (provider) => provider.id === selectedProviderId,
-  );
-  const supportsTemperature = supportsParameter(selectedModel, "temperature");
-  const supportsTopP = supportsParameter(selectedModel, "top_p");
-  const supportsModelReasoning = supportsReasoning(selectedModel);
   const editLineLoading = !isCreate && lineQuery.isPending;
-  const canAssist = Boolean(
-    !readOnly && !editLineLoading && selectedProviderAvailable && selectedProvider && selectedModel,
-  );
+  const canAssist = !readOnly && !editLineLoading;
   const assistantBlockedReason = editLineLoading
     ? "Загрузка линии"
-    : providersQuery.isPending
-    ? "Загрузка моделей"
     : readOnly
       ? summary?.runtime.reason || "AI недоступен"
-      : !selectedProvider
-        ? "Выбери AI-провайдер"
-        : !selectedModel
-          ? "Выбери разрешенную модель"
-          : selectedProvider.last_error || undefined;
-  const activeProviderLabel =
-    selectedProvider && selectedModel
-      ? `${selectedProvider.name} · ${selectedModel.display_name} · ${
-          selectedProvider.is_external ? "внешний" : "локальный"
-        }`
-      : "AI не выбран";
+      : undefined;
   const loadedDraft = line ? lineToDraft(line) : emptyDraft;
   const draft = isCreate ? createDraft : { ...loadedDraft, ...draftOverrides };
 
@@ -274,11 +176,6 @@ export function StoryLineDetailRoute({ projectId, lineId }: StoryLineDetailRoute
       suggestStoryLines(projectId, {
         instructions: assistantInstructionsForMode(assistantInstructions, draft, isCreate),
         max_suggestions: 1,
-        provider_id: selectedProviderId || null,
-        model_id: selectedModelId || null,
-        temperature: supportsTemperature ? temperature : 0.7,
-        top_p: supportsTopP ? topP : null,
-        reasoning_effort: supportsModelReasoning && reasoningEffort ? reasoningEffort : null,
       }),
     onSuccess: (result) => {
       const suggestion = result.story_lines[0];
@@ -313,7 +210,6 @@ export function StoryLineDetailRoute({ projectId, lineId }: StoryLineDetailRoute
 
   const errors = [
     summaryQuery.error,
-    providersQuery.error,
     lineQuery.error,
     progressQuery.error,
     createMutation.error,
@@ -348,6 +244,15 @@ export function StoryLineDetailRoute({ projectId, lineId }: StoryLineDetailRoute
           </NoticeBlock>
         ))}
 
+        <ProjectAgentSettingsCard
+          agentKey="story_line_generator"
+          className="story-line-detail-panel"
+          description="Применяется к помощнику, который собирает новую линию или предлагает правку."
+          disabled={readOnly}
+          projectId={projectId}
+          title="Настройки ассистента линии"
+        />
+
         <section className="story-line-detail-panel" aria-label="Ассистент линии">
           <div className="story-line-detail-panel__title">
             <Sparkles size={18} aria-hidden="true" />
@@ -362,121 +267,9 @@ export function StoryLineDetailRoute({ projectId, lineId }: StoryLineDetailRoute
               }
             }}
           >
-            <section className="story-line-detail-agent-config" aria-label="Настройки модели">
-              <div className="story-line-detail-agent-config__title">
-                <Bot size={17} aria-hidden="true" />
-                <span>Модель</span>
-                <small>{activeProviderLabel}</small>
-                {!canAssist && (
-                  <Link
-                    className="story-line-detail-agent-config__settings"
-                    title="Настроить AI"
-                    to="/settings/providers"
-                  >
-                    <PlugZap size={15} aria-hidden="true" />
-                  </Link>
-                )}
-              </div>
-
-              <div className="story-line-detail-two-column">
-                <label className="story-line-detail-agent-field">
-                  <span>Провайдер</span>
-                  <select
-                    disabled={readOnly || providersQuery.isPending || assistantMutation.isPending}
-                    name="story-line-assistant-provider"
-                    onChange={(event) => {
-                      setSelectedProviderId(event.target.value);
-                      setSelectedModelId("");
-                    }}
-                    value={selectedProviderId}
-                  >
-                    {selectableProviders.length === 0 && <option value="">Нет доступных</option>}
-                    {selectableProviders.map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="story-line-detail-agent-field">
-                  <span>Модель</span>
-                  <select
-                    disabled={readOnly || assistantMutation.isPending || !selectedProvider}
-                    name="story-line-assistant-model"
-                    onChange={(event) => setSelectedModelId(event.target.value)}
-                    value={selectedModelId}
-                  >
-                    {models.length === 0 && <option value="">Нет разрешенных</option>}
-                    {models.map((model) => (
-                      <option key={model.id} value={model.model_id}>
-                        {model.display_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="story-line-detail-parameter-grid">
-                {supportsTemperature && (
-                  <label className="story-line-detail-agent-range">
-                    <span>Температура</span>
-                    <input
-                      disabled={readOnly || assistantMutation.isPending}
-                      max="2"
-                      min="0"
-                      name="story-line-assistant-temperature"
-                      onChange={(event) => setTemperature(Number(event.target.value))}
-                      step="0.05"
-                      type="range"
-                      value={temperature}
-                    />
-                    <output>{temperature.toFixed(2)}</output>
-                  </label>
-                )}
-                {supportsTopP && (
-                  <label className="story-line-detail-agent-range">
-                    <span>Top P</span>
-                    <input
-                      disabled={readOnly || assistantMutation.isPending}
-                      max="1"
-                      min="0"
-                      name="story-line-assistant-top-p"
-                      onChange={(event) => setTopP(Number(event.target.value))}
-                      step="0.05"
-                      type="range"
-                      value={topP}
-                    />
-                    <output>{topP.toFixed(2)}</output>
-                  </label>
-                )}
-                {supportsModelReasoning && (
-                  <label className="story-line-detail-agent-field">
-                    <span>Reasoning</span>
-                    <select
-                      disabled={readOnly || assistantMutation.isPending}
-                      name="story-line-assistant-reasoning"
-                      onChange={(event) =>
-                        setReasoningEffort(event.target.value as StoryLineReasoningEffort | "")
-                      }
-                      value={reasoningEffort}
-                    >
-                      <option value="">Auto</option>
-                      {reasoningEffortOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
-
-              {!canAssist && assistantBlockedReason && (
-                <NoticeBlock tone="error">
-                  {assistantBlockedReason} <Link to="/settings/providers">Настроить AI</Link>
-                </NoticeBlock>
-              )}
-            </section>
+            {!canAssist && assistantBlockedReason && (
+              <NoticeBlock tone="error">{assistantBlockedReason}</NoticeBlock>
+            )}
             <textarea
               disabled={readOnly || assistantMutation.isPending}
               name="story-line-assistant-instructions"

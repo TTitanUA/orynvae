@@ -32,6 +32,8 @@ def _project_from_row(row: sqlite3.Row) -> ProjectRecord:
         status=row["status"],
         active_provider_id=row["active_provider_id"],
         active_model_id=row["active_model_id"],
+        default_temperature=row["default_temperature"],
+        default_top_p=row["default_top_p"],
         expansion_policy=row["expansion_policy"],
         is_hidden=bool(row["is_hidden"]),
         created_at=row["created_at"],
@@ -66,6 +68,8 @@ def list_projects(
               status,
               active_provider_id,
               active_model_id,
+              default_temperature,
+              default_top_p,
               expansion_policy,
               is_hidden,
               created_at,
@@ -94,6 +98,8 @@ def get_project(project_id: str, *, include_hidden: bool | None = None) -> Proje
               status,
               active_provider_id,
               active_model_id,
+              default_temperature,
+              default_top_p,
               expansion_policy,
               is_hidden,
               created_at,
@@ -119,10 +125,12 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
               status,
               active_provider_id,
               active_model_id,
+              default_temperature,
+              default_top_p,
               expansion_policy,
               is_hidden
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 project_id,
@@ -131,6 +139,8 @@ def create_project(payload: ProjectCreate) -> ProjectRecord:
                 payload.status,
                 payload.active_provider_id,
                 payload.active_model_id,
+                payload.default_temperature,
+                payload.default_top_p,
                 payload.expansion_policy,
                 int(payload.is_hidden),
             ),

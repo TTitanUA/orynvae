@@ -5,6 +5,8 @@ export type Project = {
   status: string;
   active_provider_id: string | null;
   active_model_id: string | null;
+  default_temperature: number;
+  default_top_p: number;
   expansion_policy: string;
   is_hidden: boolean;
   created_at: string;
@@ -131,6 +133,8 @@ export type StartStoryConfirmPayload = {
   understood_synopsis?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
+  default_temperature?: number;
+  default_top_p?: number;
   expansion_policy: StartStoryExpansionPolicy;
   memory_items: StartStoryMemoryCandidate[];
   story_lines: StartStoryLineCandidate[];
@@ -349,6 +353,8 @@ export type ProjectUpdatePayload = {
   status?: string;
   active_provider_id?: string | null;
   active_model_id?: string | null;
+  default_temperature?: number;
+  default_top_p?: number;
   expansion_policy?: string;
   is_hidden?: boolean;
 };

@@ -1,0 +1,165 @@
+.project-ai-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+.project-ai-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(42rem, calc(100vw - 4rem));
+  max-height: calc(100vh - 5rem);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: 0 1.25rem 3rem rgba(15, 23, 42, 0.18);
+}
+
+.project-ai-modal__header,
+.project-ai-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.project-ai-modal__footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 0;
+}
+
+.project-ai-modal__header > div,
+.project-ai-modal__section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.project-ai-modal h2,
+.project-ai-modal h3 {
+  margin: 0;
+}
+
+.project-ai-modal h2 {
+  font-size: 1.125rem;
+}
+
+.project-ai-modal h3 {
+  font-size: 1rem;
+}
+
+.project-ai-modal__header button,
+.project-ai-modal__footer button,
+.project-ai-modal__section-title a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.project-ai-modal__header button,
+.project-ai-modal__section-title a {
+  width: 2.5rem;
+  padding: 0;
+}
+
+.project-ai-modal__footer button:last-child {
+  gap: 0.5rem;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.project-ai-modal__footer button:disabled,
+.project-ai-modal input:disabled,
+.project-ai-modal select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.project-ai-modal__body {
+  display: grid;
+  gap: 1rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem;
+}
+
+.project-ai-modal__section {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.project-ai-modal__section-title {
+  justify-content: space-between;
+}
+
+.project-ai-modal__grid,
+.project-ai-modal__range-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.875rem;
+}
+
+.project-ai-modal label {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.project-ai-modal label > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.project-ai-modal select,
+.project-ai-modal input[type="range"] {
+  width: 100%;
+}
+
+.project-ai-modal select {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.project-ai-range {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.project-ai-range > span {
+  grid-column: 1 / -1;
+}
+
+.project-ai-range output {
+  min-width: 3.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.project-ai-modal__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 0;
+  color: var(--color-text-muted);
+}

@@ -37,7 +37,7 @@ class DraftAssemblyRequest(Stage7ApiModel):
     style_notes: str | None = Field(default=None, max_length=4000)
     provider_id: str | None = None
     model_id: str | None = None
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 
@@ -66,7 +66,7 @@ class DraftAssistRequest(Stage7ApiModel):
     instructions: str = Field(min_length=1, max_length=4000)
     provider_id: str | None = None
     model_id: str | None = None
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 
@@ -146,7 +146,7 @@ class ChapterReviewGenerateRequest(Stage7ApiModel):
     source_draft_version_id: str | None = None
     provider_id: str | None = None
     model_id: str | None = None
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 
@@ -196,7 +196,7 @@ class ForecastGenerateRequest(Stage7ApiModel):
     active_story_line_ids: list[str] = Field(default_factory=list)
     provider_id: str | None = None
     model_id: str | None = None
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 

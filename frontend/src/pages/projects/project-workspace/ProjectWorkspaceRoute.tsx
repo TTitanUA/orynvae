@@ -38,6 +38,7 @@ import {
   type MemoryProposal,
   type MemoryProposalAcceptPayload,
 } from "../../../entities/memory";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import { projectMutations, projectQueryKeys } from "../../../entities/project";
 import { privacySettingsQueries } from "../../../entities/privacy-settings";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
@@ -477,6 +478,15 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                   <span className="workspace-empty-line">ожидающих предложений нет</span>
                 )}
               </section>
+
+              <ProjectAgentSettingsCard
+                agentKey="contradiction_checker"
+                className="workspace-panel"
+                description="Применяется к проверке новой информации на противоречия с памятью."
+                disabled={readOnly}
+                projectId={projectId}
+                title="Настройки проверки"
+              />
 
               <section className="workspace-panel" aria-label="Проверка противоречий">
                 <div className="workspace-panel__title">

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, BookOpen, ChevronLeft, Eye, ListChecks, PlugZap, Save, Sparkles, WandSparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, Eye, ListChecks, Save, Sparkles, WandSparkles } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
@@ -19,14 +19,7 @@ import {
   type KeyEvent,
   type NarratorSessionDetail,
 } from "../../../entities/narrator-session";
-import {
-  allowedModels,
-  modelSupportsParameter,
-  providerQueries,
-  selectableAiProviders,
-  type Provider,
-  type ProviderModel,
-} from "../../../entities/provider";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
 import "./DraftAssemblyRoute.css";
@@ -47,59 +40,14 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
   const [selectionMarkdown, setSelectionMarkdown] = useState("");
   const [assistInstructions, setAssistInstructions] = useState("");
   const [assistPreview, setAssistPreview] = useState("");
-  const [selectedProviderIdDraft, setSelectedProviderId] = useState("");
-  const [selectedModelIdDraft, setSelectedModelId] = useState("");
-  const [temperature, setTemperature] = useState(0.7);
-  const [topP, setTopP] = useState(0.9);
 
   const summaryQuery = useQuery(memoryQueries.workspaceSummary(projectId));
   const detailQuery = useQuery(narratorSessionQueries.detail(sessionId));
-  const providersQuery = useQuery(providerQueries.list());
   const detail = detailQuery.data;
   const chapterId = detail?.chapter?.id || null;
   const versionsQuery = useQuery(draftQueries.versions(projectId, chapterId));
   const latestDraft = versionsQuery.data?.[0] || null;
   const readOnly = Boolean(summaryQuery.data?.runtime.read_only);
-  const providers = useMemo(
-    () => (Array.isArray(providersQuery.data) ? providersQuery.data : []),
-    [providersQuery.data],
-  );
-  const selectableProviders = useMemo(() => selectableAiProviders(providers), [providers]);
-  const projectProviderId = detail?.project.active_provider_id || summaryQuery.data?.project.active_provider_id || summaryQuery.data?.runtime.active_provider?.id;
-  const projectProvider = selectableProviders.find((provider) => provider.id === projectProviderId);
-  const defaultProvider = selectableProviders.find((provider) => provider.is_default);
-  const selectedProviderId =
-    selectedProviderIdDraft || (projectProvider || defaultProvider || selectableProviders[0])?.id || "";
-  const selectedProvider = useMemo(
-    () => providers.find((provider) => provider.id === selectedProviderId),
-    [providers, selectedProviderId],
-  );
-  const models = useMemo(() => allowedModels(selectedProvider), [selectedProvider]);
-  const projectModelId =
-    selectedProvider?.id === projectProviderId
-      ? detail?.project.active_model_id || summaryQuery.data?.project.active_model_id || summaryQuery.data?.runtime.active_model?.model_id
-      : undefined;
-  const projectModel = models.find((model) => model.model_id === projectModelId);
-  const defaultModel = models.find((model) => model.model_id === selectedProvider?.default_model_id);
-  const fallbackModelId = (projectModel || defaultModel || models[0])?.model_id || "";
-  const selectedModelId = models.some((model) => model.model_id === selectedModelIdDraft)
-    ? selectedModelIdDraft
-    : fallbackModelId;
-  const selectedModel = models.find((model) => model.model_id === selectedModelId);
-  const selectedProviderAvailable = selectableProviders.some((provider) => provider.id === selectedProviderId);
-  const supportsTemperature = modelSupportsParameter(selectedModel, "temperature");
-  const supportsTopP = modelSupportsParameter(selectedModel, "top_p");
-  const selectedModelReady = Boolean(selectedProviderAvailable && selectedProvider && selectedModel);
-  const modelBlockedReason =
-    providersQuery.isPending
-      ? "Загрузка моделей"
-      : !selectedProvider
-        ? summaryQuery.data?.runtime.reason || "Выбери AI-провайдер"
-        : !selectedModel
-          ? "Выбери разрешенную модель"
-          : selectedProvider.last_error || undefined;
-  const activeProviderLabel =
-    selectedProvider && selectedModel ? `${selectedProvider.name} · ${selectedModel.display_name}` : "AI не выбран";
   const turns = useMemo(() => detail?.turns || [], [detail?.turns]);
   const keyEvents = useMemo(() => detail?.key_events || [], [detail?.key_events]);
   const defaultRequiredEventIds = useMemo(
@@ -120,7 +68,7 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
     ...(summaryQuery.data?.warnings || []),
   ];
   const busy = summaryQuery.isPending || detailQuery.isPending || versionsQuery.isPending;
-  const errors = [summaryQuery.error, detailQuery.error, versionsQuery.error, providersQuery.error]
+  const errors = [summaryQuery.error, detailQuery.error, versionsQuery.error]
     .filter((error): error is Error => error instanceof Error)
     .map((error) => error.message);
 
@@ -160,13 +108,7 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
     onSuccess: (response) => setAssistPreview(response.replacement_markdown),
   });
 
-  const generationSettings = {
-    provider_id: selectedProviderId || null,
-    model_id: selectedModelId || null,
-    temperature: supportsTemperature ? temperature : undefined,
-    top_p: supportsTopP ? topP : null,
-  };
-  const canGenerate = Boolean(!readOnly && chapterId && selectedModelReady);
+  const canGenerate = Boolean(!readOnly && chapterId);
   const canMutate = Boolean(!readOnly && chapterId);
   const canAssemble = Boolean(canGenerate && detail?.session.status && ["completed", "draft_ready"].includes(detail.session.status));
   const reviewHref = detail?.chapter?.id
@@ -183,7 +125,6 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
       required_event_ids: requiredEventIds,
       excluded_turn_ids: excludedTurnIds,
       style_notes: styleNotes.trim() || null,
-      ...generationSettings,
     });
   }
 
@@ -201,7 +142,6 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
     assistMutation.mutate({
       selection_markdown: selectionMarkdown,
       instructions: assistInstructions,
-      ...generationSettings,
     });
   }
 
@@ -303,27 +243,13 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
             </aside>
 
             <main className="draft-workspace">
-              <DraftModelSettingsPanel
-                activeProviderLabel={activeProviderLabel}
-                modelBlockedReason={modelBlockedReason}
-                models={models}
-                onModelChange={setSelectedModelId}
-                onProviderChange={(providerId) => {
-                  setSelectedProviderId(providerId);
-                  setSelectedModelId("");
-                }}
-                onTemperatureChange={setTemperature}
-                onTopPChange={setTopP}
-                providers={selectableProviders}
-                readOnly={readOnly}
-                selectedModelId={selectedModelId}
-                selectedModelReady={selectedModelReady}
-                selectedProvider={selectedProvider}
-                selectedProviderId={selectedProviderId}
-                supportsTemperature={supportsTemperature}
-                supportsTopP={supportsTopP}
-                temperature={temperature}
-                topP={topP}
+              <ProjectAgentSettingsCard
+                agentKey="draft_assembler"
+                className="draft-panel"
+                description="Применяется к сборке литературного markdown из материала сессии."
+                disabled={readOnly}
+                projectId={projectId}
+                title="Настройки сборки"
               />
 
               <form className="draft-panel draft-controls" onSubmit={submitAssembly}>
@@ -382,6 +308,15 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
                 </div>
               </section>
 
+              <ProjectAgentSettingsCard
+                agentKey="draft_fragment_editor"
+                className="draft-panel"
+                description="Применяется к AI-правке выбранного markdown-фрагмента."
+                disabled={readOnly}
+                projectId={projectId}
+                title="Настройки правки"
+              />
+
               <section className="draft-panel draft-assist">
                 <div className="draft-panel__title">
                   <Sparkles size={18} aria-hidden="true" />
@@ -436,149 +371,6 @@ export function DraftAssemblyRoute({ projectId, sessionId }: DraftAssemblyRouteP
         )}
       </div>
     </AppShell>
-  );
-}
-
-function DraftModelSettingsPanel({
-  activeProviderLabel,
-  modelBlockedReason,
-  models,
-  onModelChange,
-  onProviderChange,
-  onTemperatureChange,
-  onTopPChange,
-  providers,
-  readOnly,
-  selectedModelId,
-  selectedModelReady,
-  selectedProvider,
-  selectedProviderId,
-  supportsTemperature,
-  supportsTopP,
-  temperature,
-  topP,
-}: {
-  activeProviderLabel: string;
-  modelBlockedReason: string | undefined;
-  models: ProviderModel[];
-  onModelChange: (value: string) => void;
-  onProviderChange: (value: string) => void;
-  onTemperatureChange: (value: number) => void;
-  onTopPChange: (value: number) => void;
-  providers: Provider[];
-  readOnly: boolean;
-  selectedModelId: string;
-  selectedModelReady: boolean;
-  selectedProvider: Provider | undefined;
-  selectedProviderId: string;
-  supportsTemperature: boolean;
-  supportsTopP: boolean;
-  temperature: number;
-  topP: number;
-}) {
-  return (
-    <section className="draft-panel draft-model-panel" aria-label="Модель ассистента">
-      <div className="draft-model-header">
-        <div className="draft-panel__title">
-          <Bot size={18} aria-hidden="true" />
-          <h2>Модель ассистента</h2>
-        </div>
-        <div className="draft-model-status">
-          <span>{activeProviderLabel}</span>
-          {!selectedModelReady && (
-            <Link
-              aria-label="Настроить AI"
-              className="draft-model-settings-link"
-              title="Настроить AI"
-              to="/settings/providers"
-            >
-              <PlugZap size={16} aria-hidden="true" />
-            </Link>
-          )}
-        </div>
-      </div>
-      <p className="draft-model-help">
-        Эти настройки используются для сборки черновика и AI-правки фрагментов. Уже сохраненный
-        markdown они не меняют.
-      </p>
-      {!readOnly && !selectedModelReady && modelBlockedReason && (
-        <NoticeBlock tone="error">{modelBlockedReason}</NoticeBlock>
-      )}
-      <div className="draft-model-select-grid">
-        <label className="draft-model-field">
-          <span>Провайдер</span>
-          <small>Где запускается модель: локально на твоем компьютере или во внешнем сервисе.</small>
-          <select
-            disabled={readOnly}
-            name="draft-provider"
-            onChange={(event) => onProviderChange(event.target.value)}
-            value={selectedProviderId}
-          >
-            {providers.length === 0 && <option value="">Нет доступных</option>}
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="draft-model-field">
-          <span>Модель</span>
-          <small>Конкретная модель, которая будет собирать и редактировать markdown.</small>
-          <select
-            disabled={readOnly || !selectedProvider}
-            name="draft-model"
-            onChange={(event) => onModelChange(event.target.value)}
-            value={selectedModelId}
-          >
-            {models.length === 0 && <option value="">Нет разрешенных</option>}
-            {models.map((model) => (
-              <option key={model.id} value={model.model_id}>
-                {model.display_name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="draft-model-parameter-grid">
-        {supportsTemperature && (
-          <label className="draft-model-range">
-            <span>Температура</span>
-            <small>Ниже - спокойнее и предсказуемее. Выше - смелее, образнее и рискованнее.</small>
-            <input
-              aria-label="Температура"
-              disabled={readOnly}
-              max="2"
-              min="0"
-              name="draft-temperature"
-              onChange={(event) => onTemperatureChange(Number(event.target.value))}
-              step="0.05"
-              type="range"
-              value={temperature}
-            />
-            <output>{temperature.toFixed(2)}</output>
-          </label>
-        )}
-        {supportsTopP && (
-          <label className="draft-model-range">
-            <span>Top P</span>
-            <small>Сужает или расширяет выбор слов и идей. Если не уверен, оставь около 0.90.</small>
-            <input
-              aria-label="Top P"
-              disabled={readOnly}
-              max="1"
-              min="0"
-              name="draft-top-p"
-              onChange={(event) => onTopPChange(Number(event.target.value))}
-              step="0.05"
-              type="range"
-              value={topP}
-            />
-            <output>{topP.toFixed(2)}</output>
-          </label>
-        )}
-      </div>
-    </section>
   );
 }
 

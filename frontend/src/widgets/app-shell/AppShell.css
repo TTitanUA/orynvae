@@ -41,7 +41,8 @@
   width: 100%;
 }
 
-.app-shell__nav a {
+.app-shell__nav a,
+.app-shell__project-settings {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -51,19 +52,27 @@
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--color-text-muted);
+  background: transparent;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .app-shell__nav a[aria-current="page"],
-.app-shell__nav a:hover {
+.app-shell__nav a:hover,
+.app-shell__project-settings:hover {
   border-color: var(--color-border);
   color: var(--color-text);
   background: var(--color-surface);
 }
 
-.app-shell__nav a:focus-visible {
+.app-shell__nav a:focus-visible,
+.app-shell__project-settings:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+.app-shell__project-settings {
+  margin-top: auto;
 }
 
 .app-shell__main {

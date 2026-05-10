@@ -28,6 +28,8 @@ const project = {
   status: "active",
   active_provider_id: "provider-1",
   active_model_id: "model-1",
+  default_temperature: 0.7,
+  default_top_p: 0.9,
   expansion_policy: "ask",
   is_hidden: false,
   created_at: "2026-05-09T10:00:00",
@@ -331,11 +333,7 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(turnCall?.[1]?.body))).toMatchObject({
         input_type: "action",
         content: "Я прячу капсулу.",
-        provider_id: "provider-1",
-        model_id: "model-1",
-        temperature: 0.7,
-        top_p: 0.9,
-        reasoning_effort: null,
+        selected_option_id: null,
       });
     });
     expect(await screen.findByText("Архивариус ждет.")).toBeTruthy();
@@ -424,11 +422,6 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(actionsCall?.[1]?.body))).toMatchObject({
         source_turn_id: "turn-1",
         prompt: "Сделай варианты осторожнее.",
-        provider_id: "provider-1",
-        model_id: "model-1",
-        temperature: 0.7,
-        top_p: 0.9,
-        reasoning_effort: null,
       });
     });
 
@@ -441,8 +434,6 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(turnCall?.[1]?.body))).toMatchObject({
         input_type: "choice",
         selected_option_id: "action-regenerated",
-        provider_id: "provider-1",
-        model_id: "model-1",
       });
     });
 
@@ -576,18 +567,13 @@ describe("NarratorSessionRoute", () => {
     fireEvent.change(await screen.findByPlaceholderText(/Стиль/), {
       target: { value: "Пиши суше и тревожнее." },
     });
-    fireEvent.change(screen.getByLabelText("Температура"), { target: { value: "0.35" } });
-    fireEvent.change(screen.getByLabelText("Reasoning"), { target: { value: "high" } });
     fireEvent.click(screen.getByRole("button", { name: /Сохранить настройки/ }));
     await waitFor(() => {
       const settingsCall = fetchMock.mock.calls.find(
         ([url, init]) => url === "/api/sessions/session-1/agent-settings" && init?.method === "PATCH",
       );
-      expect(JSON.parse(String(settingsCall?.[1]?.body))).toMatchObject({
+      expect(JSON.parse(String(settingsCall?.[1]?.body))).toEqual({
         agent_instructions: "Пиши суше и тревожнее.",
-        agent_temperature: 0.35,
-        agent_top_p: 0.9,
-        agent_reasoning_effort: "high",
       });
     });
 

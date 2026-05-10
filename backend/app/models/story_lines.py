@@ -34,7 +34,7 @@ class StoryLineSuggestRequest(StoryLineApiModel):
     max_suggestions: int = Field(default=5, ge=1, le=7)
     provider_id: str | None = None
     model_id: str | None = None
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 

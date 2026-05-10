@@ -22,6 +22,7 @@ import {
   memoryTypeLabel,
   type MemoryItemStatus,
 } from "../../../entities/memory";
+import { ProjectAgentSettingsCard } from "../../../entities/project-ai-settings";
 import { storyLineQueries, type StoryLineStatus } from "../../../entities/story-line";
 import { NoticeBlock, StatusPill } from "../../../shared/ui";
 import { AppShell } from "../../../widgets/app-shell";
@@ -155,6 +156,15 @@ export function ChapterReviewRoute({ projectId, chapterId }: ChapterReviewRouteP
         {readOnly && <NoticeBlock>Разбор доступен только для чтения, пока AI недоступен.</NoticeBlock>}
         {generateMutation.error instanceof Error && <NoticeBlock tone="error">{generateMutation.error.message}</NoticeBlock>}
         {applyMutation.error instanceof Error && <NoticeBlock tone="error">{applyMutation.error.message}</NoticeBlock>}
+
+        <ProjectAgentSettingsCard
+          agentKey="chapter_reviewer"
+          className="review-panel"
+          description="Применяется к разбору главы, извлечению памяти и обновлениям линий после сессии."
+          disabled={readOnly}
+          projectId={projectId}
+          title="Настройки разбора"
+        />
 
         {!review && (
           <section className="review-panel review-empty">

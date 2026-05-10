@@ -28,6 +28,8 @@ const project = {
   status: "active",
   active_provider_id: "provider-1",
   active_model_id: "model-1",
+  default_temperature: 0.7,
+  default_top_p: 0.9,
   expansion_policy: "ask",
   is_hidden: false,
   created_at: "2026-05-09T10:00:00",
@@ -187,7 +189,7 @@ function detail() {
 }
 
 describe("DraftAssemblyRoute", () => {
-  it("uses selected model settings for draft assembly and AI assist", async () => {
+  it("uses project-level AI settings for draft assembly and AI assist", async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary());
@@ -236,21 +238,18 @@ describe("DraftAssemblyRoute", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("heading", { name: "Модель ассистента" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Температура"), { target: { value: "0.35" } });
-    fireEvent.change(screen.getByLabelText("Top P"), { target: { value: "0.8" } });
+    expect(await screen.findByRole("heading", { name: "Сборка" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /Собрать черновик/ }));
     await waitFor(() => {
       const assembleCall = fetchMock.mock.calls.find(
         ([url, init]) => url === "/api/sessions/session-1/assemble-draft" && init?.method === "POST",
       );
-      expect(JSON.parse(String(assembleCall?.[1]?.body))).toMatchObject({
+      expect(JSON.parse(String(assembleCall?.[1]?.body))).toEqual({
         mode: "literary",
-        provider_id: "provider-1",
-        model_id: "model-1",
-        temperature: 0.35,
-        top_p: 0.8,
+        required_event_ids: ["event-1"],
+        excluded_turn_ids: [],
+        style_notes: null,
       });
     });
 
@@ -267,13 +266,9 @@ describe("DraftAssemblyRoute", () => {
           url === "/api/projects/project-1/chapters/chapter-1/draft/assist" &&
           init?.method === "POST",
       );
-      expect(JSON.parse(String(assistCall?.[1]?.body))).toMatchObject({
+      expect(JSON.parse(String(assistCall?.[1]?.body))).toEqual({
         selection_markdown: "Собранный черновик.",
         instructions: "Сделай короче.",
-        provider_id: "provider-1",
-        model_id: "model-1",
-        temperature: 0.35,
-        top_p: 0.8,
       });
     });
   });

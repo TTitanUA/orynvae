@@ -67,7 +67,7 @@ class AiActionRequest(StrictAiModel):
     context: AiActionContext = Field(default_factory=AiActionContext)
     streaming: bool = False
     privacy_level: PrivacyLevel = "project"
-    temperature: float = Field(default=0.7, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
     reasoning_effort: ReasoningEffort | None = None
 
