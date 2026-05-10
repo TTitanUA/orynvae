@@ -1,0 +1,160 @@
+.chapters-route {
+  display: grid;
+  width: 100%;
+  gap: 1.25rem;
+}
+
+.chapters-header,
+.chapters-header__status,
+.chapters-toolbar,
+.chapters-toolbar > div,
+.chapter-card__header,
+.chapter-card__actions {
+  display: flex;
+  align-items: center;
+}
+
+.chapters-header {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chapters-header h1 {
+  margin: 0;
+  font-size: 1.875rem;
+}
+
+.chapters-header p,
+.chapter-card h2,
+.chapter-card p {
+  margin: 0;
+}
+
+.chapters-header p,
+.chapters-header__status,
+.chapters-toolbar,
+.chapters-back,
+.chapter-card__header span,
+.chapter-card__facts dt {
+  color: var(--color-text-muted);
+}
+
+.chapters-header__status {
+  justify-content: flex-end;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.chapters-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  text-decoration: none;
+}
+
+.chapters-toolbar {
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 0.875rem 1rem;
+}
+
+.chapters-toolbar > div {
+  gap: 0.5rem;
+}
+
+.chapters-primary-link,
+.chapter-card__actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #ffffff;
+  font: inherit;
+  padding: 0.45rem 0.75rem;
+  text-decoration: none;
+}
+
+.chapters-list {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.chapter-card {
+  display: grid;
+  gap: 0.875rem;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 1rem;
+}
+
+.chapter-card__header {
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.chapter-card__header > div {
+  min-width: 0;
+}
+
+.chapter-card__header h2 {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+
+.chapter-card__preview {
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chapter-card__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.chapter-card__facts dd {
+  margin: 0.125rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.chapter-card__actions {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chapter-card__actions a:nth-child(n + 2) {
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+}
+
+@media (max-width: 760px) {
+  .chapters-header,
+  .chapters-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chapters-header__status {
+    justify-content: flex-start;
+  }
+
+  .chapter-card__facts {
+    grid-template-columns: 1fr;
+  }
+}

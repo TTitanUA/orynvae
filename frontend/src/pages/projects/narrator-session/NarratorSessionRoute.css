@@ -34,6 +34,7 @@
 .narrator-header__status,
 .narrator-tabs,
 .narrator-panel-title,
+.narrator-agent-header,
 .narrator-session-actions,
 .narrator-input-types {
   align-items: center;
@@ -329,20 +330,91 @@
   gap: 12px;
 }
 
-.narrator-agent-panel label {
-  display: grid;
-  gap: 6px;
+.narrator-agent-header {
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.narrator-agent-panel label span {
+.narrator-agent-status {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.narrator-agent-settings-link {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  display: inline-flex;
+  min-height: 2rem;
+  padding: 0 8px;
+  text-decoration: none;
+}
+
+.narrator-agent-header .narrator-panel-title {
+  margin-bottom: 0;
+}
+
+.narrator-agent-status span,
+.narrator-agent-help,
+.narrator-agent-field small,
+.narrator-agent-range small {
   color: var(--color-text-muted);
   font-size: 0.85rem;
 }
 
-.narrator-agent-grid {
+.narrator-agent-help {
+  margin: 0;
+}
+
+.narrator-agent-field,
+.narrator-agent-range {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.narrator-agent-field span,
+.narrator-agent-range span {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.narrator-agent-select-grid,
+.narrator-agent-parameter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.narrator-agent-parameter-grid {
+  align-items: end;
+}
+
+.narrator-agent-range {
+  grid-template-columns: 1fr auto;
+}
+
+.narrator-agent-range span,
+.narrator-agent-range small,
+.narrator-agent-range input {
+  grid-column: 1 / -1;
+}
+
+.narrator-agent-range input[type="range"] {
+  accent-color: var(--color-accent);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.narrator-agent-range output {
+  align-self: center;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .narrator-log-turns {
@@ -383,6 +455,21 @@ select:disabled,
 textarea:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+@media (max-width: 820px) {
+  .narrator-layout,
+  .narrator-log-layout,
+  .narrator-agent-select-grid,
+  .narrator-agent-parameter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .narrator-header,
+  .narrator-agent-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @keyframes narrator-generation-pulse {

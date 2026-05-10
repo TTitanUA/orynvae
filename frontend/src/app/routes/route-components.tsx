@@ -1,6 +1,7 @@
 import { Navigate, useParams } from "react-router-dom";
 
 import { HomeRoute } from "../../pages/home/HomeRoute";
+import { ChaptersRoute } from "../../pages/projects/chapters/ChaptersRoute";
 import { ChapterReviewRoute } from "../../pages/projects/chapter-review/ChapterReviewRoute";
 import { ChapterPrepareRoute } from "../../pages/projects/chapter-prepare/ChapterPrepareRoute";
 import { DraftAssemblyRoute } from "../../pages/projects/draft-assembly/DraftAssemblyRoute";
@@ -63,6 +64,16 @@ export function StoryLineDetailRouteFromParams() {
   }
 
   return <StoryLineDetailRoute key={`story-line-${lineId}`} lineId={lineId} projectId={projectId} />;
+}
+
+export function ChaptersRouteFromParams() {
+  const { projectId } = useParams<{ projectId: string }>();
+
+  if (!projectId) {
+    return <HomeRoute />;
+  }
+
+  return <ChaptersRoute projectId={projectId} />;
 }
 
 export function ChapterPrepareRouteFromParams() {

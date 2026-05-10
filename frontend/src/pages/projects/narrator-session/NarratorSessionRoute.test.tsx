@@ -49,6 +49,44 @@ const chapter = {
   updated_at: "2026-05-09T10:00:00",
 };
 
+const providers = [
+  {
+    id: "provider-1",
+    type: "lmstudio",
+    name: "Local AI",
+    base_url: "http://127.0.0.1:1234",
+    has_api_key: false,
+    is_local: true,
+    is_external: false,
+    is_enabled: true,
+    is_default: true,
+    streaming_enabled: true,
+    models_path: "/v1/models",
+    chat_path: "/v1/chat/completions",
+    default_model_id: "model-1",
+    last_checked_at: null,
+    last_error: null,
+    created_at: "2026-05-09T10:00:00",
+    updated_at: "2026-05-09T10:00:00",
+    models: [
+      {
+        id: "model-record-1",
+        provider_id: "provider-1",
+        model_id: "model-1",
+        display_name: "Default Model",
+        supports_streaming: true,
+        context_window: null,
+        capabilities: { supported_parameters: ["temperature", "top_p", "reasoning_effort"] },
+        is_allowed: true,
+        routing_config: null,
+        last_seen_at: null,
+        created_at: "2026-05-09T10:00:00",
+        updated_at: "2026-05-09T10:00:00",
+      },
+    ],
+  },
+];
+
 function session(status = "active") {
   return {
     id: "session-1",
@@ -205,6 +243,9 @@ describe("NarratorSessionRoute", () => {
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary(true));
       }
+      if (url === "/api/providers") {
+        return jsonResponse(providers);
+      }
       if (url === "/api/sessions/session-1") {
         return jsonResponse(detail("active"));
       }
@@ -230,6 +271,9 @@ describe("NarratorSessionRoute", () => {
       void init;
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary(false, currentStatus));
+      }
+      if (url === "/api/providers") {
+        return jsonResponse(providers);
       }
       if (url === "/api/sessions/session-1/start") {
         currentStatus = "active";
@@ -287,6 +331,11 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(turnCall?.[1]?.body))).toMatchObject({
         input_type: "action",
         content: "Я прячу капсулу.",
+        provider_id: "provider-1",
+        model_id: "model-1",
+        temperature: 0.7,
+        top_p: 0.9,
+        reasoning_effort: null,
       });
     });
     expect(await screen.findByText("Архивариус ждет.")).toBeTruthy();
@@ -313,6 +362,9 @@ describe("NarratorSessionRoute", () => {
       void init;
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary(false));
+      }
+      if (url === "/api/providers") {
+        return jsonResponse(providers);
       }
       if (url === "/api/sessions/session-1/turns") {
         return jsonResponse({
@@ -372,6 +424,11 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(actionsCall?.[1]?.body))).toMatchObject({
         source_turn_id: "turn-1",
         prompt: "Сделай варианты осторожнее.",
+        provider_id: "provider-1",
+        model_id: "model-1",
+        temperature: 0.7,
+        top_p: 0.9,
+        reasoning_effort: null,
       });
     });
 
@@ -384,6 +441,8 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(turnCall?.[1]?.body))).toMatchObject({
         input_type: "choice",
         selected_option_id: "action-regenerated",
+        provider_id: "provider-1",
+        model_id: "model-1",
       });
     });
 
@@ -414,6 +473,9 @@ describe("NarratorSessionRoute", () => {
       void init;
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary(false));
+      }
+      if (url === "/api/providers") {
+        return jsonResponse(providers);
       }
       if (url === "/api/sessions/session-1/turns") {
         return turnResponse;
@@ -486,6 +548,9 @@ describe("NarratorSessionRoute", () => {
       if (url.includes("/workspace-summary")) {
         return jsonResponse(workspaceSummary(false));
       }
+      if (url === "/api/providers") {
+        return jsonResponse(providers);
+      }
       if (url === "/api/sessions/session-1/agent-settings") {
         return jsonResponse(playbackDetail);
       }
@@ -511,7 +576,7 @@ describe("NarratorSessionRoute", () => {
     fireEvent.change(await screen.findByPlaceholderText(/Стиль/), {
       target: { value: "Пиши суше и тревожнее." },
     });
-    fireEvent.change(screen.getByLabelText("Temperature"), { target: { value: "0.35" } });
+    fireEvent.change(screen.getByLabelText("Температура"), { target: { value: "0.35" } });
     fireEvent.change(screen.getByLabelText("Reasoning"), { target: { value: "high" } });
     fireEvent.click(screen.getByRole("button", { name: /Сохранить настройки/ }));
     await waitFor(() => {
@@ -521,6 +586,7 @@ describe("NarratorSessionRoute", () => {
       expect(JSON.parse(String(settingsCall?.[1]?.body))).toMatchObject({
         agent_instructions: "Пиши суше и тревожнее.",
         agent_temperature: 0.35,
+        agent_top_p: 0.9,
         agent_reasoning_effort: "high",
       });
     });

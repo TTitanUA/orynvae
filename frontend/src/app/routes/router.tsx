@@ -7,6 +7,7 @@ import { PrivacySettingsRoute } from "../../pages/settings/privacy/PrivacySettin
 import { ProviderSettingsRoute } from "../../pages/settings/providers/ProviderSettingsRoute";
 import { SettingsRoute } from "../../pages/settings/SettingsRoute";
 import {
+  ChaptersRouteFromParams,
   ChapterPrepareRouteFromParams,
   ChapterReviewRouteFromParams,
   DraftAssemblyRouteFromParams,
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
   { path: "/projects/:projectId/story-lines", element: <StoryLinesRouteFromParams /> },
   { path: "/projects/:projectId/story-lines/new", element: <StoryLineCreateRouteFromParams /> },
   { path: "/projects/:projectId/story-lines/:lineId", element: <StoryLineDetailRouteFromParams /> },
+  { path: "/projects/:projectId/chapters", element: <ChaptersRouteFromParams /> },
   { path: "/projects/:projectId/chapters/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/chapters/:chapterId/prepare", element: <ChapterPrepareRouteFromParams /> },
   { path: "/projects/:projectId/chapters/:chapterId/review", element: <ChapterReviewRouteFromParams /> },

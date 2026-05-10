@@ -341,6 +341,9 @@ export function ProjectWorkspaceRoute({ projectId }: ProjectWorkspaceRouteProps)
                     <dd>{summary.active_story_lines.length || "нет активных линий"}</dd>
                   </div>
                 </dl>
+                <Link className="workspace-secondary-link" to={`/projects/${projectId}/chapters`}>
+                  Открыть главы
+                </Link>
               </article>
 
               <article className="workspace-panel">

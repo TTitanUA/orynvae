@@ -106,6 +106,9 @@ describe("ProjectWorkspaceRoute", () => {
     expect((await screen.findByText("Memory Courier")).textContent).toBe("Memory Courier");
     expect((await screen.findByText("Только чтение")).textContent).toBe("Только чтение");
     expect((await screen.findByText("Courier")).textContent).toBe("Courier");
+    expect((await screen.findByRole("link", { name: "Открыть главы" })).getAttribute("href")).toBe(
+      "/projects/project-1/chapters",
+    );
     expect((await screen.findAllByText("AI-предложение")).length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/projects/project-1/workspace-summary",

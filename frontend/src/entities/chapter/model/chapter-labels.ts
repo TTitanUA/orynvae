@@ -21,3 +21,22 @@ export function chapterUserRoleLabel(role: string | null | undefined): string {
 export function chapterPaceLabel(pace: string | null | undefined): string {
   return chapterPaceOptions.find((option) => option.value === pace)?.label || "Не задан";
 }
+
+export function chapterStatusLabel(status: string | null | undefined): string {
+  switch (status) {
+    case "planned":
+      return "Запланирована";
+    case "in_session":
+      return "В сессии";
+    case "session_done":
+      return "Сессия завершена";
+    case "draft_generated":
+      return "Черновик готов";
+    case "reviewing":
+      return "На разборе";
+    case "completed":
+      return "Завершена";
+    default:
+      return "Статус неизвестен";
+  }
+}
